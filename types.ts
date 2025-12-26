@@ -40,6 +40,22 @@ export interface Person {
   color: string;
 }
 
+export interface FirebaseFullConfig {
+  apiKey: string;
+  authDomain: string;
+  databaseURL: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+}
+
+export interface CloudConfig {
+  fullConfig?: FirebaseFullConfig;
+  familySecret: string;
+  enabled: boolean;
+}
+
 export interface SummaryData {
   totalIncome: number;
   totalExpense: number;

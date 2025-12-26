@@ -1,202 +1,201 @@
 
 import React, { useState } from 'react';
-import { Person, Card, CardType, Category } from '../types';
+import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, CreditCard, Trash2, User, Tag } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, ExternalLink, Key, ShieldCheck } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
   cards: Card[];
   categories: Category[];
+  cloudConfig: CloudConfig;
+  onUpdateCloudConfig: (config: CloudConfig) => void;
   onAddPerson: (person: Person) => void;
   onRemovePerson: (id: string) => void;
   onAddCard: (card: Card) => void;
   onRemoveCard: (id: string) => void;
   onAddCategory: (cat: Category) => void;
   onRemoveCategory: (id: string) => void;
+  onManualSync: () => void;
 }
 
 const Management: React.FC<ManagementProps> = ({ 
-  people, cards, categories, onAddPerson, onRemovePerson, onAddCard, onRemoveCard, onAddCategory, onRemoveCategory
+  people, cards, categories, cloudConfig, onUpdateCloudConfig, onAddPerson, onRemovePerson, onAddCategory, onRemoveCategory
 }) => {
   const [newPersonName, setNewPersonName] = useState('');
-  const [newCardName, setNewCardName] = useState('');
-  const [newCardPersonId, setNewCardPersonId] = useState(people[0]?.id || '');
-  const [newCardType, setNewCardType] = useState<CardType>('BOTH');
   const [newCategoryName, setNewCategoryName] = useState('');
+  
+  const [firebaseConfigJson, setFirebaseConfigJson] = useState(
+    cloudConfig.fullConfig ? JSON.stringify(cloudConfig.fullConfig, null, 2) : ''
+  );
+  const [familySecret, setFamilySecret] = useState(cloudConfig.familySecret || 'familia');
+
+  const handleSaveCloud = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      let jsonInput = firebaseConfigJson.trim();
+      if (jsonInput.includes('{')) {
+        jsonInput = jsonInput.substring(jsonInput.indexOf('{'), jsonInput.lastIndexOf('}') + 1);
+      }
+      
+      const parsedConfig = JSON.parse(jsonInput) as FirebaseFullConfig;
+      if (!parsedConfig.apiKey || !parsedConfig.databaseURL) {
+        throw new Error("Campos obrigatórios ausentes");
+      }
+      
+      onUpdateCloudConfig({
+        fullConfig: parsedConfig,
+        familySecret: familySecret || 'familia',
+        enabled: true
+      });
+      alert('Configuração atualizada com sucesso!');
+    } catch (err) {
+      alert('Erro: Certifique-se de que colou o objeto JSON corretamente.');
+    }
+  };
 
   const handleAddPerson = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPersonName.trim()) return;
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-    onAddPerson({
-      id: generateId(),
-      name: newPersonName,
-      color: colors[people.length % colors.length]
-    });
+    onAddPerson({ id: generateId(), name: newPersonName, color: '#3b82f6' });
     setNewPersonName('');
-  };
-
-  const handleAddCard = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCardName.trim() || !newCardPersonId) return;
-    onAddCard({
-      id: generateId(),
-      name: newCardName,
-      personId: newCardPersonId,
-      type: newCardType
-    });
-    setNewCardName('');
   };
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
-    onAddCategory({
-      id: generateId(),
-      name: newCategoryName
-    });
+    onAddCategory({ id: generateId(), name: newCategoryName });
     setNewCategoryName('');
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Category Management */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-2 mb-6">
-          <Tag className="text-blue-500" />
-          <h3 className="text-xl font-bold text-slate-800">Minhas Categorias</h3>
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
+      {/* Firebase Config Card */}
+      <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-blue-50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+          <ShieldCheck size={120} className="text-blue-600" />
         </div>
-        
-        <form onSubmit={handleAddCategory} className="flex gap-2 mb-6">
-          <input
-            type="text"
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Nova categoria..."
-            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-1">
-            <Plus size={18} /> Add
-          </button>
-        </form>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
-          {categories.map(cat => (
-            <div key={cat.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-              <span className="text-sm font-medium text-slate-700 truncate">{cat.name}</span>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200">
+            <Key size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">Conexão com Firebase</h3>
+            <p className="text-slate-500 text-sm">Suas credenciais já estão configuradas. Altere apenas se necessário.</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveCloud} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2 ml-1">
+                Configuração do SDK (Objeto JSON)
+                <span className="cursor-help text-blue-500" title="Suas chaves atuais.">
+                  <Info size={14} />
+                </span>
+              </label>
+              <textarea
+                rows={6}
+                value={firebaseConfigJson}
+                onChange={(e) => setFirebaseConfigJson(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-mono text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">
+                Pasta no Banco ( familySecret )
+              </label>
+              <input
+                type="text"
+                value={familySecret}
+                onChange={(e) => setFamilySecret(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none"
+                placeholder="Ex: familia-silva"
+              />
+            </div>
+
+            <div className="flex items-end">
               <button 
-                onClick={() => onRemoveCategory(cat.id)}
-                className="text-slate-300 hover:text-red-500 transition-colors ml-2"
+                type="submit"
+                className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all"
               >
-                <Trash2 size={16} />
+                Salvar Alterações
               </button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* People Management */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-2 mb-6">
-          <User className="text-blue-500" />
-          <h3 className="text-xl font-bold text-slate-800">Membros da Família</h3>
-        </div>
-        
-        <form onSubmit={handleAddPerson} className="flex gap-2 mb-6">
-          <input
-            type="text"
-            value={newPersonName}
-            onChange={(e) => setNewPersonName(e.target.value)}
-            placeholder="Nome do membro..."
-            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-1">
-            <Plus size={18} /> Add
-          </button>
-        </form>
-
-        <div className="space-y-3">
-          {people.map(p => (
-            <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color }} />
-                <span className="font-semibold text-slate-700">{p.name}</span>
-              </div>
-              <button 
-                onClick={() => onRemovePerson(p.id)}
-                className="text-slate-300 hover:text-red-500 transition-colors"
-                disabled={people.length <= 1}
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Card Management */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2">
-        <div className="flex items-center gap-2 mb-6">
-          <CreditCard className="text-blue-500" />
-          <h3 className="text-xl font-bold text-slate-800">Cartões</h3>
-        </div>
-
-        <form onSubmit={handleAddCard} className="space-y-3 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input
-              type="text"
-              value={newCardName}
-              onChange={(e) => setNewCardName(e.target.value)}
-              placeholder="Nome do Cartão (ex: Nubank)"
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            <select
-              value={newCardPersonId}
-              onChange={(e) => setNewCardPersonId(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="">De quem?</option>
-              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <select
-              value={newCardType}
-              onChange={(e) => setNewCardType(e.target.value as CardType)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="BOTH">Débito & Crédito</option>
-              <option value="CREDIT">Somente Crédito</option>
-              <option value="DEBIT">Somente Débito</option>
-            </select>
-            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-1">
-              <Plus size={18} /> Cadastrar
-            </button>
           </div>
         </form>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {cards.map(c => {
-            const owner = people.find(p => p.id === c.personId);
-            return (
-              <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border-l-4 border-blue-400">
-                <div className="flex flex-col">
-                  <span className="font-bold text-slate-800">{c.name}</span>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase font-bold">{c.type}</span>
-                    <span>• {owner?.name}</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => onRemoveCard(c.id)}
-                  className="text-slate-300 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            );
-          })}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
+            <h4 className="text-[10px] font-black text-green-700 uppercase mb-2 flex items-center gap-1">
+              <Database size={12} /> Banco de Dados Ativo
+            </h4>
+            <p className="text-[11px] text-green-800 leading-relaxed">
+              O sistema está gravando em tempo real no seu projeto <b>financeiro-1e216</b>.
+            </p>
+          </div>
+          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+            <h4 className="text-[10px] font-black text-amber-700 uppercase mb-2 flex items-center gap-1">
+              <ShieldCheck size={12} /> Autenticação Ativa
+            </h4>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              Lembre-se de cadastrar o e-mail da sua noiva no menu <b>Authentication</b> do Firebase.
+            </p>
+          </div>
         </div>
-        {cards.length === 0 && <p className="text-center py-4 text-slate-400 text-sm">Nenhum cartão cadastrado.</p>}
+      </div>
+
+      {/* Basic Lists */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Tag size={18} className="text-blue-500" /> Categorias
+          </h3>
+          <form onSubmit={handleAddCategory} className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Adicionar..."
+              className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+            />
+            <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={20} /></button>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <span key={cat.id} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold flex items-center gap-2 group">
+                {cat.name}
+                <button onClick={() => onRemoveCategory(cat.id)} className="hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <User size={18} className="text-blue-500" /> Membros
+          </h3>
+          <form onSubmit={handleAddPerson} className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newPersonName}
+              onChange={(e) => setNewPersonName(e.target.value)}
+              placeholder="Nome..."
+              className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+            />
+            <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={20} /></button>
+          </form>
+          <div className="space-y-2">
+            {people.map(p => (
+              <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
+                <span className="text-sm font-bold text-slate-700 ml-2">{p.name}</span>
+                <button onClick={() => onRemovePerson(p.id)} className="p-1 text-slate-300 hover:text-red-500" disabled={people.length <= 1}><Trash2 size={14} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
