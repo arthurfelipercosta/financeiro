@@ -1,13 +1,15 @@
 
 import React, { useState } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { FirebaseApp } from 'firebase/app';
 import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: () => void;
+  firebaseApp: FirebaseApp | null;
 }
 
-const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+const Login: React.FC<LoginProps> = ({ onLoginSuccess, firebaseApp }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,11 +17,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firebaseApp) return;
+
     setLoading(true);
     setError('');
     
     try {
-      const auth = getAuth();
+      const auth = getAuth(firebaseApp);
       await signInWithEmailAndPassword(auth, email, password);
       onLoginSuccess();
     } catch (err: any) {
@@ -82,7 +86,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           )}
 
           <button
-            disabled={loading}
+            disabled={loading || !firebaseApp}
             type="submit"
             className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >

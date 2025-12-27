@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, ExternalLink, Key, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -20,11 +20,16 @@ interface ManagementProps {
 }
 
 const Management: React.FC<ManagementProps> = ({ 
-  people, cards, categories, cloudConfig, onUpdateCloudConfig, onAddPerson, onRemovePerson, onAddCategory, onRemoveCategory
+  people, cards, categories, cloudConfig, onUpdateCloudConfig, onAddPerson, onRemovePerson, onAddCard, onRemoveCard, onAddCategory, onRemoveCategory
 }) => {
   const [newPersonName, setNewPersonName] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   
+  // States para novo cartão
+  const [newCardName, setNewCardName] = useState('');
+  const [newCardPersonId, setNewCardPersonId] = useState(people[0]?.id || '');
+  const [newCardType, setNewCardType] = useState<CardType>('BOTH');
+
   const [firebaseConfigJson, setFirebaseConfigJson] = useState(
     cloudConfig.fullConfig ? JSON.stringify(cloudConfig.fullConfig, null, 2) : ''
   );
@@ -66,6 +71,18 @@ const Management: React.FC<ManagementProps> = ({
     if (!newCategoryName.trim()) return;
     onAddCategory({ id: generateId(), name: newCategoryName });
     setNewCategoryName('');
+  };
+
+  const handleAddCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCardName.trim() || !newCardPersonId) return;
+    onAddCard({
+      id: generateId(),
+      name: newCardName,
+      personId: newCardPersonId,
+      type: newCardType
+    });
+    setNewCardName('');
   };
 
   return (
@@ -126,28 +143,83 @@ const Management: React.FC<ManagementProps> = ({
             </div>
           </div>
         </form>
+      </div>
 
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-            <h4 className="text-[10px] font-black text-green-700 uppercase mb-2 flex items-center gap-1">
-              <Database size={12} /> Banco de Dados Ativo
-            </h4>
-            <p className="text-[11px] text-green-800 leading-relaxed">
-              O sistema está gravando em tempo real no seu projeto <b>financeiro-1e216</b>.
-            </p>
+      {/* Cartões Section */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <CreditCard size={18} className="text-blue-500" /> Meus Cartões
+        </h3>
+        
+        <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+          <div className="md:col-span-1">
+            <input
+              type="text"
+              value={newCardName}
+              onChange={(e) => setNewCardName(e.target.value)}
+              placeholder="Nome do Cartão (ex: Nubank)"
+              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+              required
+            />
           </div>
-          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-            <h4 className="text-[10px] font-black text-amber-700 uppercase mb-2 flex items-center gap-1">
-              <ShieldCheck size={12} /> Autenticação Ativa
-            </h4>
-            <p className="text-[11px] text-amber-800 leading-relaxed">
-              Lembre-se de cadastrar o e-mail da sua noiva no menu <b>Authentication</b> do Firebase.
-            </p>
+          <div className="md:col-span-1">
+            <select
+              value={newCardPersonId}
+              onChange={(e) => setNewCardPersonId(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+              required
+            >
+              <option value="">De quem é?</option>
+              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           </div>
+          <div className="md:col-span-1">
+            <select
+              value={newCardType}
+              onChange={(e) => setNewCardType(e.target.value as CardType)}
+              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+            >
+              <option value="CREDIT">Crédito</option>
+              <option value="DEBIT">Débito</option>
+              <option value="BOTH">Ambos</option>
+            </select>
+          </div>
+          <button type="submit" className="bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 font-bold text-sm py-2 hover:bg-blue-700 transition-colors">
+            <Plus size={16} /> Cadastrar
+          </button>
+        </form>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {cards.length === 0 ? (
+            <p className="text-slate-400 text-xs italic col-span-full">Nenhum cartão cadastrado.</p>
+          ) : (
+            cards.map(card => {
+              const person = people.find(p => p.id === card.personId);
+              return (
+                <div key={card.id} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group">
+                  <button 
+                    onClick={() => onRemoveCard(card.id)}
+                    className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <span className="text-sm font-black text-slate-800">{card.name}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-white rounded-full text-blue-600 border border-blue-100 uppercase">
+                      {card.type === 'BOTH' ? 'Crédito/Débito' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Dono: {person?.name || 'Desconhecido'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* Basic Lists */}
+      {/* Categorias e Membros Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -175,7 +247,7 @@ const Management: React.FC<ManagementProps> = ({
 
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <User size={18} className="text-blue-500" /> Membros
+            <User size={18} className="text-blue-500" /> Membros da Família
           </h3>
           <form onSubmit={handleAddPerson} className="flex gap-2 mb-4">
             <input
@@ -190,7 +262,10 @@ const Management: React.FC<ManagementProps> = ({
           <div className="space-y-2">
             {people.map(p => (
               <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
-                <span className="text-sm font-bold text-slate-700 ml-2">{p.name}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                  <span className="text-sm font-bold text-slate-700">{p.name}</span>
+                </div>
                 <button onClick={() => onRemovePerson(p.id)} className="p-1 text-slate-300 hover:text-red-500" disabled={people.length <= 1}><Trash2 size={14} /></button>
               </div>
             ))}

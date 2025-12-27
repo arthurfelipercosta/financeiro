@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getDatabase, ref, onValue, set } from 'firebase/database';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth';
+import { getDatabase, ref, onValue, set, Database } from 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
 import { getMonthYear, generateId } from './lib/utils';
@@ -28,6 +28,7 @@ const DEFAULT_FIREBASE_CONFIG = {
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('family_finance_transactions');
@@ -64,31 +65,34 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Inicialização do Firebase
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
       const app = getApps().length > 0 ? getApp() : initializeApp(config);
-      const auth = getAuth(app);
+      setFirebaseApp(app);
       
+      const auth = getAuth(app);
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setUser(currentUser);
         setIsAuthLoading(false);
       }, (err) => {
-        console.error("Auth error:", err);
+        console.error("Auth status error:", err);
         setIsAuthLoading(false);
       });
 
       return () => unsubscribe();
     } catch (err) {
-      console.error("Firebase init error:", err);
+      console.error("Firebase startup error:", err);
       setIsAuthLoading(false);
     }
   }, [cloudConfig.fullConfig]);
 
+  // Sincronização de entrada (Realtime Database -> App)
   useEffect(() => {
-    if (user && cloudConfig.enabled) {
+    if (user && cloudConfig.enabled && firebaseApp) {
       setIsSyncing(true);
-      const db = getDatabase();
+      const db = getDatabase(firebaseApp);
       const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
 
       const unsubscribe = onValue(dataRef, (snapshot) => {
@@ -107,16 +111,17 @@ const App: React.FC = () => {
 
       return () => unsubscribe();
     }
-  }, [user, cloudConfig.enabled, cloudConfig.familySecret]);
+  }, [user, cloudConfig.enabled, cloudConfig.familySecret, firebaseApp]);
 
+  // Sincronização de saída (App -> Realtime Database)
   useEffect(() => {
     localStorage.setItem('family_finance_transactions', JSON.stringify(transactions));
     localStorage.setItem('family_finance_people', JSON.stringify(people));
     localStorage.setItem('family_finance_cards', JSON.stringify(cards));
     localStorage.setItem('family_finance_categories', JSON.stringify(categories));
 
-    if (user && cloudConfig.enabled && !isSyncing) {
-      const db = getDatabase();
+    if (user && cloudConfig.enabled && !isSyncing && firebaseApp) {
+      const db = getDatabase(firebaseApp);
       const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
       
       const timer = setTimeout(() => {
@@ -125,11 +130,12 @@ const App: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [transactions, people, cards, categories, user, cloudConfig.enabled, isSyncing]);
+  }, [transactions, people, cards, categories, user, cloudConfig.enabled, isSyncing, firebaseApp]);
 
   const handleLogout = () => {
     if (confirm('Deseja sair da sua conta?')) {
-      getAuth().signOut();
+      const auth = getAuth(firebaseApp!);
+      auth.signOut();
     }
   };
 
@@ -190,7 +196,7 @@ const App: React.FC = () => {
   }
 
   if (cloudConfig.enabled && !user) {
-    return <Login onLoginSuccess={() => {}} />;
+    return <Login onLoginSuccess={() => {}} firebaseApp={firebaseApp} />;
   }
 
   return (
