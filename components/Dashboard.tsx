@@ -50,11 +50,11 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'];
 
   const generateAIAnalysis = async () => {
-    // A chave deve ser configurada no Netlify como API_KEY
+    // Busca a chave das variáveis de ambiente configuradas no Netlify
     const apiKey = process.env.API_KEY;
     
     if (!apiKey || apiKey.trim() === "" || apiKey === "undefined") {
-      setAnalysis("⚠️ Chave de API não configurada corretamente.\n\nNo Netlify, vá em 'Environment Variables':\n1. Key: API_KEY\n2. Value: (Cole seu código AIza...)\n3. Clique em 'Create Variable' e faça um novo 'Deploy'.");
+      setAnalysis("⚠️ IA Pendente: A chave 'API_KEY' ainda não foi reconhecida. No Netlify, após salvar a variável, você deve clicar em 'Deploys' > 'Trigger Deploy' para o site ler a chave nova.");
       return;
     }
 
@@ -65,27 +65,23 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
       const totalExpense = categoryData.reduce((acc, curr) => acc + curr.value, 0);
       const mainCategory = categoryData[0]?.name || 'Nenhuma';
       
-      const prompt = `Você é um consultor financeiro familiar experiente. Analise estes dados reais de gastos mensais:
-      - Gasto Total: ${formatCurrency(totalExpense)}
-      - Categoria com maior gasto: ${mainCategory} (${formatCurrency(categoryData[0]?.value || 0)})
-      - Divisão por pessoa: ${personData.map(p => `${p.name}: ${formatCurrency(p.value)}`).join(', ')}
+      const prompt = `Atue como um mentor financeiro para um casal. Analise estes gastos:
+      - Total: ${formatCurrency(totalExpense)}
+      - Maior categoria: ${mainCategory} (${formatCurrency(categoryData[0]?.value || 0)})
+      - Por pessoa: ${personData.map(p => `${p.name}: ${formatCurrency(p.value)}`).join(', ')}
 
-      Dê 3 dicas curtas e práticas em português para economizar ou gerir melhor o dinheiro. Use emojis e seja motivador. Limite a 100 palavras.`;
+      Dê 3 dicas rápidas em português para o casal economizar este mês. Use emojis.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
       
-      // Conforme as diretrizes, usamos .text diretamente (é um getter, não um método)
-      setAnalysis(response.text || "A IA não conseguiu gerar uma resposta agora. Tente novamente em instantes.");
+      // Conforme diretrizes: usar .text diretamente
+      setAnalysis(response.text || "O consultor está sem palavras no momento. Tente novamente.");
     } catch (err: any) {
-      console.error("Erro Gemini:", err);
-      if (err.message?.includes("API key not valid")) {
-        setAnalysis("❌ Chave de API Inválida. Verifique se copiou o código do Google AI Studio corretamente sem espaços.");
-      } else {
-        setAnalysis("❌ Erro ao conectar com a IA. Certifique-se de que a variável de ambiente API_KEY está salva no Netlify.");
-      }
+      console.error("Gemini Error:", err);
+      setAnalysis("❌ Erro ao chamar a IA. Verifique se a variável API_KEY no Netlify contém apenas o código (sem aspas ou espaços).");
     } finally {
       setIsAnalyzing(false);
     }
@@ -151,10 +147,10 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
         </div>
       </div>
 
-      {/* IA e Pagamentos */}
+      {/* Seção da Inteligência Artificial */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm lg:col-span-1">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6">Formas de Pagamento</h3>
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6">Pagamentos</h3>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -167,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-3xl shadow-xl shadow-blue-100 text-white relative overflow-hidden">
+        <div className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-blue-800 p-8 rounded-3xl shadow-xl shadow-blue-100 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <BrainCircuit size={150} />
           </div>
@@ -178,16 +174,16 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
                 <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
                   <Sparkles size={24} className="text-yellow-300" />
                 </div>
-                <h3 className="text-xl font-black">Consultoria da Família</h3>
+                <h3 className="text-xl font-black">Consultor da Família</h3>
               </div>
               
               <button 
                 onClick={generateAIAnalysis}
                 disabled={isAnalyzing}
-                className="px-5 py-2.5 bg-white text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 disabled:opacity-50 transition-all flex items-center gap-2 shadow-lg active:scale-95"
+                className="px-5 py-2.5 bg-white text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-50 disabled:opacity-50 transition-all flex items-center gap-2 shadow-lg active:scale-95"
               >
                 {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                {analysis ? 'Atualizar Dicas' : 'Analisar Gastos'}
+                {analysis ? 'Novas Dicas' : 'Analisar Gastos'}
               </button>
             </div>
 
@@ -195,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
               {isAnalyzing ? (
                 <div className="text-center">
                   <Loader2 className="w-12 h-12 text-white/50 animate-spin mx-auto mb-3" />
-                  <p className="text-blue-100 font-medium animate-pulse">O consultor está analisando seus dados...</p>
+                  <p className="text-blue-100 font-medium animate-pulse">Lendo seus dados financeiros...</p>
                 </div>
               ) : analysis ? (
                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 w-full animate-in fade-in zoom-in duration-500">
@@ -204,12 +200,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
                   </p>
                 </div>
               ) : (
-                <div className="text-center text-blue-100/80 max-w-sm">
+                <div className="text-center text-blue-100/80">
                   <p className="text-lg font-medium italic">
-                    "O planejamento financeiro é a base de um futuro tranquilo para o casal."
+                    "O planejamento é o caminho mais curto para a realização dos sonhos do casal."
                   </p>
                   <p className="text-[10px] mt-4 font-bold uppercase tracking-widest opacity-60">
-                    Clique no botão acima para receber sugestões da IA
+                    A IA gerará conselhos personalizados com base no seu mês
                   </p>
                 </div>
               )}
