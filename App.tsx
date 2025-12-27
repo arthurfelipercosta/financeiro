@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { initializeApp } from 'firebase/app';
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { getDatabase, ref, onValue, set } from 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
@@ -13,7 +13,7 @@ import TransactionList from './components/TransactionList';
 import Management from './components/Management';
 import MonthPickerModal from './components/MonthPickerModal';
 import Login from './components/Login';
-import { Plus, ChevronLeft, ChevronRight, LayoutDashboard, List, Calendar, Wallet, Settings, BarChart3, CloudOff, RefreshCw, User as UserIcon, LogOut } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, LayoutDashboard, List, Calendar, Wallet, Settings, BarChart3, CloudOff, RefreshCw, User as UserIcon, LogOut, Loader2 } from 'lucide-react';
 
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCTJ_4N-rJy0ZuJeVgtusQDLTAFVQ2ClVA",
@@ -51,7 +51,6 @@ const App: React.FC = () => {
 
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
     const saved = localStorage.getItem('family_finance_cloud');
-    // Se não houver nada salvo, usamos as credenciais fornecidas pelo usuário por padrão
     return saved ? JSON.parse(saved) : { 
       enabled: true, 
       familySecret: 'familia',
@@ -65,31 +64,29 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Inicializa Firebase
   useEffect(() => {
-    if (cloudConfig.enabled && cloudConfig.fullConfig) {
-      try {
-        const app = initializeApp(cloudConfig.fullConfig);
-        const auth = getAuth(app);
-        
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          setUser(currentUser);
-          setIsAuthLoading(false);
-        });
-
-        return () => unsubscribe();
-      } catch (err) {
-        console.error("Erro ao inicializar Firebase:", err);
+    const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
+    try {
+      const app = getApps().length > 0 ? getApp() : initializeApp(config);
+      const auth = getAuth(app);
+      
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
         setIsAuthLoading(false);
-      }
-    } else {
+      }, (err) => {
+        console.error("Auth error:", err);
+        setIsAuthLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error("Firebase init error:", err);
       setIsAuthLoading(false);
     }
-  }, [cloudConfig.enabled, cloudConfig.fullConfig]);
+  }, [cloudConfig.fullConfig]);
 
-  // Sincronização em Tempo Real
   useEffect(() => {
-    if (user && cloudConfig.enabled && cloudConfig.fullConfig) {
+    if (user && cloudConfig.enabled) {
       setIsSyncing(true);
       const db = getDatabase();
       const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
@@ -104,7 +101,7 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       }, (err) => {
-        console.error("Erro ao ler do Firebase:", err);
+        console.error("Database read error:", err);
         setIsSyncing(false);
       });
 
@@ -112,7 +109,6 @@ const App: React.FC = () => {
     }
   }, [user, cloudConfig.enabled, cloudConfig.familySecret]);
 
-  // Salvar no local e enviar push para Firebase
   useEffect(() => {
     localStorage.setItem('family_finance_transactions', JSON.stringify(transactions));
     localStorage.setItem('family_finance_people', JSON.stringify(people));
@@ -182,13 +178,23 @@ const App: React.FC = () => {
     window.location.reload();
   };
 
-  if (cloudConfig.enabled && !user && !isAuthLoading) {
+  if (isAuthLoading) {
+    return (
+      <div className="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">
+          Verificando conta...
+        </p>
+      </div>
+    );
+  }
+
+  if (cloudConfig.enabled && !user) {
     return <Login onLoginSuccess={() => {}} />;
   }
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 py-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center justify-between">
@@ -212,7 +218,6 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
-            
             {user && (
               <button onClick={handleLogout} className="md:hidden p-2 text-slate-400 hover:text-red-500">
                 <LogOut size={20} />
