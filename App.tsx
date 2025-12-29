@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth';
-import { getDatabase, ref, onValue, set, Database } from 'firebase/database';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { getDatabase, ref, onValue, set } from 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
 import { getMonthYear, generateId } from './lib/utils';
@@ -65,14 +65,23 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Inicialização do Firebase
+  // 1. Iniciar App do Firebase
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
       const app = getApps().length > 0 ? getApp() : initializeApp(config);
       setFirebaseApp(app);
-      
-      const auth = getAuth(app);
+    } catch (err) {
+      console.error("Firebase App error:", err);
+    }
+  }, [cloudConfig.fullConfig]);
+
+  // 2. Iniciar Auth e Monitorar Usuário
+  useEffect(() => {
+    if (!firebaseApp) return;
+
+    try {
+      const auth = getAuth(firebaseApp);
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setUser(currentUser);
         setIsAuthLoading(false);
@@ -80,15 +89,14 @@ const App: React.FC = () => {
         console.error("Auth status error:", err);
         setIsAuthLoading(false);
       });
-
       return () => unsubscribe();
     } catch (err) {
-      console.error("Firebase startup error:", err);
+      console.error("Auth component error:", err);
       setIsAuthLoading(false);
     }
-  }, [cloudConfig.fullConfig]);
+  }, [firebaseApp]);
 
-  // Sincronização de entrada (Realtime Database -> App)
+  // 3. Sincronização de Dados
   useEffect(() => {
     if (user && cloudConfig.enabled && firebaseApp) {
       setIsSyncing(true);
@@ -105,7 +113,7 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       }, (err) => {
-        console.error("Database read error:", err);
+        console.error("Database error:", err);
         setIsSyncing(false);
       });
 
@@ -113,7 +121,7 @@ const App: React.FC = () => {
     }
   }, [user, cloudConfig.enabled, cloudConfig.familySecret, firebaseApp]);
 
-  // Sincronização de saída (App -> Realtime Database)
+  // 4. Salvar Dados
   useEffect(() => {
     localStorage.setItem('family_finance_transactions', JSON.stringify(transactions));
     localStorage.setItem('family_finance_people', JSON.stringify(people));
@@ -132,65 +140,66 @@ const App: React.FC = () => {
     }
   }, [transactions, people, cards, categories, user, cloudConfig.enabled, isSyncing, firebaseApp]);
 
-  const handleLogout = () => {
-    if (confirm('Deseja sair da sua conta?')) {
-      const auth = getAuth(firebaseApp!);
-      auth.signOut();
+  const handleLogout = useCallback(() => {
+    if (firebaseApp && confirm('Deseja sair da sua conta?')) {
+      getAuth(firebaseApp).signOut();
     }
-  };
+  }, [firebaseApp]);
 
-  const currentMonthStr = getMonthYear(currentDate);
+  const currentMonthStr = useMemo(() => getMonthYear(currentDate), [currentDate]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => getMonthYear(new Date(t.date)) === currentMonthStr);
   }, [transactions, currentMonthStr]);
 
-  const handleAddTransactions = (newItems: Transaction[]) => {
+  const handleAddTransactions = useCallback((newItems: Transaction[]) => {
     setTransactions(prev => [...prev, ...newItems]);
-  };
+  }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     if (confirm('Deseja realmente excluir esta transação?')) {
       setTransactions(prev => prev.filter(t => t.id !== id));
     }
-  };
+  }, []);
 
-  const handleTogglePaid = (id: string) => {
+  const handleTogglePaid = useCallback((id: string) => {
     setTransactions(prev => prev.map(t => 
       t.id === id ? { ...t, isPaid: !t.isPaid } : t
     ));
-  };
+  }, []);
 
-  const handleUpdateAmount = (id: string, newAmount: number) => {
+  const handleUpdateAmount = useCallback((id: string, newAmount: number) => {
     setTransactions(prev => prev.map(t => 
       t.id === id ? { ...t, amount: newAmount } : t
     ));
-  };
+  }, []);
 
-  const changeMonth = (offset: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + offset);
-    setCurrentDate(newDate);
-  };
+  const changeMonth = useCallback((offset: number) => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + offset);
+      return newDate;
+    });
+  }, []);
 
-  const dateParts = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).formatToParts(currentDate);
-  const monthName = dateParts.find(p => p.type === 'month')?.value || '';
-  const yearName = dateParts.find(p => p.type === 'year')?.value || '';
-  const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} de ${yearName}`;
+  const monthLabel = useMemo(() => {
+    const dateParts = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).formatToParts(currentDate);
+    const monthName = dateParts.find(p => p.type === 'month')?.value || '';
+    const yearName = dateParts.find(p => p.type === 'year')?.value || '';
+    return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} de ${yearName}`;
+  }, [currentDate]);
 
-  const handleUpdateCloudConfig = (config: CloudConfig) => {
+  const handleUpdateCloudConfig = useCallback((config: CloudConfig) => {
     setCloudConfig(config);
     localStorage.setItem('family_finance_cloud', JSON.stringify(config));
     window.location.reload();
-  };
+  }, []);
 
   if (isAuthLoading) {
     return (
       <div className="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">
-          Verificando conta...
-        </p>
+        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Acessando Banco de Dados...</p>
       </div>
     );
   }
@@ -206,7 +215,7 @@ const App: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-2xl font-black text-blue-600 tracking-tight flex items-center gap-2">
-                <Wallet className="text-blue-500" /> Financeiro
+                <Wallet className="text-blue-500" /> Financeiro AI
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {user ? (
