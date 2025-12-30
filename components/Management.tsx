@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink, Pencil, Check, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, CreditCard, Palette, Pencil, Check, X, AlertTriangle } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -176,52 +176,6 @@ const Management: React.FC<ManagementProps> = ({
           </div>
         </div>
       )}
-
-      {/* Guia de Segurança */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-100 p-8 rounded-3xl shadow-sm">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="bg-amber-500 p-3 rounded-2xl text-white shadow-lg shadow-amber-200">
-            <ShieldAlert size={24} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-amber-900">Segurança e Privacidade</h3>
-            <p className="text-amber-700 text-sm font-medium">Proteja seu banco de dados contra curiosos no GitHub.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white/60 p-5 rounded-2xl border border-amber-200 space-y-3">
-            <div className="flex items-center gap-2 font-bold text-amber-800 text-sm">
-              <Lock size={16} /> 1. Bloqueie novos cadastros
-            </div>
-            <p className="text-xs text-amber-700 leading-relaxed">
-              Vá no site do Firebase em <b>Authentication > Settings > User actions</b> e desmarque a opção <b>"Allow software registration"</b>. 
-              Isso impede que desconhecidos criem contas, mesmo tendo seu código.
-            </p>
-          </div>
-
-          <div className="bg-white/60 p-5 rounded-2xl border border-amber-200 space-y-3">
-            <div className="flex items-center gap-2 font-bold text-amber-800 text-sm">
-              <ShieldCheck size={16} /> 2. Regras de Acesso
-            </div>
-            <p className="text-xs text-amber-700 leading-relaxed">
-              No menu <b>Realtime Database > Rules</b>, use regras que verifiquem o seu ID de usuário único (UID). 
-              Não deixe as regras como <code>auth != null</code> se quiser privacidade total.
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 flex justify-center">
-          <a 
-            href="https://console.firebase.google.com/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-700 transition-colors"
-          >
-            Abrir Console do Firebase <ExternalLink size={14} />
-          </a>
-        </div>
-      </div>
 
       {/* Firebase Config Card */}
       <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-blue-50 relative overflow-hidden">
@@ -397,13 +351,14 @@ const Management: React.FC<ManagementProps> = ({
               return (
                 <button 
                   key={card.id} 
+                  type="button"
                   onClick={() => startEditCard(card)}
-                  className="group flex flex-col w-full text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md hover:border-blue-400 active:scale-[0.97]"
+                  className="group relative flex flex-col w-full text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 active:scale-[0.96] active:bg-slate-50"
                 >
-                  <div className="p-4 flex-1 w-full">
+                  <div className="p-5 flex-1 w-full">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-base font-black text-slate-800">{card.name}</span>
-                      <div className="bg-slate-50 p-1.5 rounded-lg text-slate-300 group-hover:text-blue-500 transition-colors">
+                      <div className="bg-slate-50 p-2 rounded-xl text-slate-300 group-hover:text-blue-600 group-hover:bg-blue-50 transition-all">
                         <Pencil size={14} />
                       </div>
                     </div>
@@ -418,9 +373,6 @@ const Management: React.FC<ManagementProps> = ({
                         <User size={10} /> {person?.name || '---'}
                       </span>
                     </div>
-                  </div>
-                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 w-full">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Toque para editar ou excluir</p>
                   </div>
                 </button>
               );
