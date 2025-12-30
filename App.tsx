@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// Changed to namespaced imports to resolve "no exported member" errors which typically occur in v8 environments or misconfigured v9 setups.
-import firebase from 'firebase/app';
-import 'firebase/auth';
-import 'firebase/database';
+// Corrected to use firebase/compat/app and corresponding compat subpackages to support v8-style namespaced code in v9+ environments.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
 import { getMonthYear, getMonthYearFromStr, generateId } from './lib/utils';
@@ -27,8 +27,10 @@ const DEFAULT_FIREBASE_CONFIG = {
 };
 
 const App: React.FC = () => {
+  // Use firebase.User from the compat layer to fix namespace error.
   const [user, setUser] = useState<firebase.User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Use firebase.app.App from the compat layer to fix namespace error.
   const [firebaseApp, setFirebaseApp] = useState<firebase.app.App | null>(null);
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -66,7 +68,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Inicializa o Firebase uma única vez
+  // Inicializa o Firebase uma única vez utilizando compat/app para suporte a v8 syntax.
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
@@ -104,6 +106,7 @@ const App: React.FC = () => {
       const db = firebaseApp.database();
       const dataRef = db.ref(`data/${cloudConfig.familySecret}`);
       
+      // Use firebase.database.DataSnapshot from the compat layer.
       const callback = (snapshot: firebase.database.DataSnapshot) => {
         const data = snapshot.val();
         if (data) {

@@ -240,13 +240,13 @@ const Management: React.FC<ManagementProps> = ({
         </h3>
         
         {!editingCardId && (
-          <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 animate-in slide-in-from-top-2 duration-300">
+          <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8 animate-in slide-in-from-top-2 duration-300">
             <div className="md:col-span-1">
               <input
                 type="text"
                 value={newCardName}
                 onChange={(e) => setNewCardName(e.target.value)}
-                placeholder="Nome do Cartão"
+                placeholder="Nome do Cartão (ex: Nub)"
                 className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
                 required
               />
@@ -258,7 +258,7 @@ const Management: React.FC<ManagementProps> = ({
                 className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
                 required
               >
-                <option value="">De quem é?</option>
+                <option value="">Selecione o Dono</option>
                 {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
@@ -270,7 +270,7 @@ const Management: React.FC<ManagementProps> = ({
               >
                 <option value="CREDIT">Crédito</option>
                 <option value="DEBIT">Débito</option>
-                <option value="BOTH">Ambos</option>
+                <option value="BOTH">Ambos (Crédito/Débito)</option>
               </select>
             </div>
             <button type="submit" className="bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 font-bold text-sm py-2 hover:bg-blue-700 transition-colors">
@@ -279,9 +279,11 @@ const Management: React.FC<ManagementProps> = ({
           </form>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.length === 0 ? (
-            <p className="text-slate-400 text-xs italic col-span-full">Nenhum cartão cadastrado.</p>
+            <div className="col-span-full py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-slate-400 text-xs italic">Nenhum cartão cadastrado ainda.</p>
+            </div>
           ) : (
             cards.map(card => {
               const isEditing = editingCardId === card.id;
@@ -289,41 +291,57 @@ const Management: React.FC<ManagementProps> = ({
 
               if (isEditing) {
                 return (
-                  <div key={card.id} className="flex flex-col p-4 bg-blue-50 rounded-2xl border-2 border-blue-200 animate-in zoom-in duration-200 space-y-3 shadow-inner">
+                  <div key={card.id} className="flex flex-col p-4 bg-blue-50 rounded-2xl border-2 border-blue-400 animate-in zoom-in duration-200 space-y-3 shadow-lg ring-4 ring-blue-50">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-blue-600 uppercase">Editando Cartão</label>
+                      <button 
+                        onClick={() => {
+                          if(confirm('Deseja excluir este cartão?')) {
+                            onRemoveCard(card.id);
+                            setEditingCardId(null);
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        title="Excluir Cartão"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={editCardName}
                       onChange={(e) => setEditCardName(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-bold outline-none"
+                      className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Nome do cartão"
                     />
                     <select
                       value={editCardPersonId}
                       onChange={(e) => setEditCardPersonId(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs outline-none"
+                      className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm outline-none"
                     >
                       {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <select
                       value={editCardType}
                       onChange={(e) => setEditCardType(e.target.value as CardType)}
-                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs outline-none"
+                      className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm outline-none"
                     >
                       <option value="CREDIT">Crédito</option>
                       <option value="DEBIT">Débito</option>
-                      <option value="BOTH">Ambos</option>
+                      <option value="BOTH">Ambos (Crédito/Débito)</option>
                     </select>
                     <div className="flex gap-2 pt-1">
                       <button 
                         onClick={saveEditCard}
-                        className="flex-1 py-1.5 bg-green-600 text-white rounded-lg flex items-center justify-center gap-1 text-[10px] font-black uppercase hover:bg-green-700"
+                        className="flex-1 py-2 bg-green-600 text-white rounded-lg flex items-center justify-center gap-1 text-xs font-black uppercase hover:bg-green-700 active:scale-95 transition-all shadow-sm"
                       >
-                        <Check size={14} /> Salvar
+                        <Check size={16} /> Salvar
                       </button>
                       <button 
                         onClick={() => setEditingCardId(null)}
-                        className="flex-1 py-1.5 bg-slate-200 text-slate-600 rounded-lg flex items-center justify-center gap-1 text-[10px] font-black uppercase hover:bg-slate-300"
+                        className="flex-1 py-2 bg-slate-300 text-slate-700 rounded-lg flex items-center justify-center gap-1 text-xs font-black uppercase hover:bg-slate-400 active:scale-95 transition-all"
                       >
-                        <X size={14} /> Sair
+                        <X size={16} /> Sair
                       </button>
                     </div>
                   </div>
@@ -331,33 +349,34 @@ const Management: React.FC<ManagementProps> = ({
               }
 
               return (
-                <div key={card.id} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group transition-all hover:bg-white hover:shadow-md">
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => startEditCard(card)}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 bg-white rounded-lg shadow-sm"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button 
-                      onClick={() => onRemoveCard(card.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 bg-white rounded-lg shadow-sm"
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                <button 
+                  key={card.id} 
+                  onClick={() => startEditCard(card)}
+                  className="group flex flex-col w-full text-left bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm transition-all hover:shadow-md hover:border-blue-400 active:scale-[0.97]"
+                >
+                  <div className="p-4 flex-1 w-full">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-base font-black text-slate-800">{card.name}</span>
+                      <div className="bg-slate-50 p-1.5 rounded-lg text-slate-300 group-hover:text-blue-500 transition-colors">
+                        <Pencil size={14} />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                        card.type === 'BOTH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 
+                        card.type === 'CREDIT' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                      }`}>
+                        {card.type === 'BOTH' ? 'Crédito/Débito' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                        <User size={10} /> {person?.name || '---'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-sm font-black text-slate-800">{card.name}</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-white rounded-full text-blue-600 border border-blue-100 uppercase">
-                      {card.type === 'BOTH' ? 'Crédito/Débito' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {person?.name || 'Desconhecido'}
-                    </span>
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 w-full">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Toque para editar ou excluir</p>
                   </div>
-                </div>
+                </button>
               );
             })
           )}
@@ -375,7 +394,7 @@ const Management: React.FC<ManagementProps> = ({
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Adicionar..."
+              placeholder="Adicionar categoria..."
               className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
             />
             <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg transition-transform active:scale-90"><Plus size={20} /></button>
@@ -400,7 +419,7 @@ const Management: React.FC<ManagementProps> = ({
                 type="text"
                 value={newPersonName}
                 onChange={(e) => setNewPersonName(e.target.value)}
-                placeholder="Nome..."
+                placeholder="Nome do membro..."
                 className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
               />
               <button 

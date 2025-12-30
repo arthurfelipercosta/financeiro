@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-// Corrected imports for Firebase v8 compatibility to fix "no exported member" errors during build.
-import firebase from 'firebase/app';
-import 'firebase/auth';
+// Corrected imports for Firebase compatibility layer to fix namespace type issues in modern environments.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: () => void;
+  // Use firebase.app.App from the compatibility layer to resolve namespace member error.
   firebaseApp: firebase.app.App | null;
 }
 
