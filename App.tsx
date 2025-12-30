@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth';
-import { getDatabase, ref, onValue, set } from 'firebase/database';
+// Changed to namespaced imports to resolve "no exported member" errors which typically occur in v8 environments or misconfigured v9 setups.
+import firebase from 'firebase/app';
+import 'firebase/auth';
+import 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
 import { getMonthYear, getMonthYearFromStr, generateId } from './lib/utils';
@@ -26,9 +27,9 @@ const DEFAULT_FIREBASE_CONFIG = {
 };
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<firebase.User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
+  const [firebaseApp, setFirebaseApp] = useState<firebase.app.App | null>(null);
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('family_finance_transactions');
@@ -69,21 +70,20 @@ const App: React.FC = () => {
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
-      const app = getApps().length > 0 ? getApp() : initializeApp(config);
+      const app = firebase.apps.length > 0 ? firebase.app() : firebase.initializeApp(config);
       setFirebaseApp(app);
     } catch (err) {
       console.error("Firebase App initialization failed:", err);
     }
   }, [cloudConfig.fullConfig]);
 
-  // Monitora autenticação com cuidado para esperar o registro dos componentes
+  // Monitora autenticação
   useEffect(() => {
     if (!firebaseApp) return;
     
-    let auth: Auth;
     try {
-      auth = getAuth(firebaseApp);
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      const auth = firebaseApp.auth();
+      const unsubscribe = auth.onAuthStateChanged((currentUser) => {
         setUser(currentUser);
         setIsAuthLoading(false);
       }, (err) => {
@@ -93,7 +93,6 @@ const App: React.FC = () => {
       return () => unsubscribe();
     } catch (err) {
       console.warn("Auth component not ready, retrying...", err);
-      // Pequeno delay caso o componente auth ainda esteja registrando no SDK
       const timer = setTimeout(() => setIsAuthLoading(false), 1000);
       return () => clearTimeout(timer);
     }
@@ -102,9 +101,10 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user && cloudConfig.enabled && firebaseApp) {
       setIsSyncing(true);
-      const db = getDatabase(firebaseApp);
-      const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
-      const unsubscribe = onValue(dataRef, (snapshot) => {
+      const db = firebaseApp.database();
+      const dataRef = db.ref(`data/${cloudConfig.familySecret}`);
+      
+      const callback = (snapshot: firebase.database.DataSnapshot) => {
         const data = snapshot.val();
         if (data) {
           if (data.transactions) setTransactions(data.transactions);
@@ -113,11 +113,14 @@ const App: React.FC = () => {
           if (data.categories) setCategories(data.categories);
         }
         setIsSyncing(false);
-      }, (err) => {
+      };
+
+      dataRef.on('value', callback, (err: Error) => {
         console.error("Database read error:", err);
         setIsSyncing(false);
       });
-      return () => unsubscribe();
+
+      return () => dataRef.off('value', callback);
     }
   }, [user, cloudConfig.enabled, cloudConfig.familySecret, firebaseApp]);
 
@@ -127,10 +130,10 @@ const App: React.FC = () => {
     localStorage.setItem('family_finance_cards', JSON.stringify(cards));
     localStorage.setItem('family_finance_categories', JSON.stringify(categories));
     if (user && cloudConfig.enabled && !isSyncing && firebaseApp) {
-      const db = getDatabase(firebaseApp);
-      const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
+      const db = firebaseApp.database();
+      const dataRef = db.ref(`data/${cloudConfig.familySecret}`);
       const timer = setTimeout(() => {
-        set(dataRef, { transactions, people, cards, categories }).catch(console.error);
+        dataRef.set({ transactions, people, cards, categories }).catch(console.error);
       }, 1500);
       return () => clearTimeout(timer);
     }
@@ -138,7 +141,7 @@ const App: React.FC = () => {
 
   const handleLogout = useCallback(() => {
     if (firebaseApp && confirm('Deseja sair da sua conta?')) {
-      getAuth(firebaseApp).signOut();
+      firebaseApp.auth().signOut();
     }
   }, [firebaseApp]);
 
@@ -189,6 +192,10 @@ const App: React.FC = () => {
     setCloudConfig(config);
     localStorage.setItem('family_finance_cloud', JSON.stringify(config));
     window.location.reload();
+  }, []);
+
+  const handleUpdateCard = useCallback((updatedCard: Card) => {
+    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
   }, []);
 
   if (isAuthLoading) {
@@ -281,6 +288,7 @@ const App: React.FC = () => {
             categories={categories}
             cloudConfig={cloudConfig}
             onUpdateCloudConfig={handleUpdateCloudConfig}
+            onUpdateCard={handleUpdateCard}
             onAddPerson={(p) => setPeople([...people, p])}
             onRemovePerson={(id) => setPeople(people.filter(p => p.id !== id))}
             onAddCard={(c) => setCards([...cards, c])}

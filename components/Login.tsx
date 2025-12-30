@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { FirebaseApp } from 'firebase/app';
+// Corrected imports for Firebase v8 compatibility to fix "no exported member" errors during build.
+import firebase from 'firebase/app';
+import 'firebase/auth';
 import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: () => void;
-  firebaseApp: FirebaseApp | null;
+  firebaseApp: firebase.app.App | null;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess, firebaseApp }) => {
@@ -23,8 +24,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, firebaseApp }) => {
     setError('');
     
     try {
-      const auth = getAuth(firebaseApp);
-      await signInWithEmailAndPassword(auth, email, password);
+      const auth = firebaseApp.auth();
+      await auth.signInWithEmailAndPassword(email, password);
       onLoginSuccess();
     } catch (err: any) {
       console.error(err);

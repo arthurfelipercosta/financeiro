@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink, Pencil, Check, X } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -10,6 +10,7 @@ interface ManagementProps {
   categories: Category[];
   cloudConfig: CloudConfig;
   onUpdateCloudConfig: (config: CloudConfig) => void;
+  onUpdateCard: (card: Card) => void;
   onAddPerson: (person: Person) => void;
   onRemovePerson: (id: string) => void;
   onAddCard: (card: Card) => void;
@@ -31,7 +32,7 @@ const PRESET_COLORS = [
 ];
 
 const Management: React.FC<ManagementProps> = ({ 
-  people, cards, categories, cloudConfig, onUpdateCloudConfig, onAddPerson, onRemovePerson, onAddCard, onRemoveCard, onAddCategory, onRemoveCategory
+  people, cards, categories, cloudConfig, onUpdateCloudConfig, onUpdateCard, onAddPerson, onRemovePerson, onAddCard, onRemoveCard, onAddCategory, onRemoveCategory
 }) => {
   const [newPersonName, setNewPersonName] = useState('');
   const [newPersonColor, setNewPersonColor] = useState(PRESET_COLORS[0]);
@@ -40,6 +41,12 @@ const Management: React.FC<ManagementProps> = ({
   const [newCardName, setNewCardName] = useState('');
   const [newCardPersonId, setNewCardPersonId] = useState(people[0]?.id || '');
   const [newCardType, setNewCardType] = useState<CardType>('BOTH');
+
+  // Estado para edição de cartão
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editCardName, setEditCardName] = useState('');
+  const [editCardPersonId, setEditCardPersonId] = useState('');
+  const [editCardType, setEditCardType] = useState<CardType>('BOTH');
 
   const [firebaseConfigJson, setFirebaseConfigJson] = useState(
     cloudConfig.fullConfig ? JSON.stringify(cloudConfig.fullConfig, null, 2) : ''
@@ -102,9 +109,27 @@ const Management: React.FC<ManagementProps> = ({
     setNewCardName('');
   };
 
+  const startEditCard = (card: Card) => {
+    setEditingCardId(card.id);
+    setEditCardName(card.name);
+    setEditCardPersonId(card.personId);
+    setEditCardType(card.type);
+  };
+
+  const saveEditCard = () => {
+    if (!editingCardId || !editCardName.trim() || !editCardPersonId) return;
+    onUpdateCard({
+      id: editingCardId,
+      name: editCardName,
+      personId: editCardPersonId,
+      type: editCardType
+    });
+    setEditingCardId(null);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12">
-      {/* Guia de Segurança - NOVO */}
+      {/* Guia de Segurança */}
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-100 p-8 rounded-3xl shadow-sm">
         <div className="flex items-center gap-4 mb-6">
           <div className="bg-amber-500 p-3 rounded-2xl text-white shadow-lg shadow-amber-200">
@@ -214,58 +239,115 @@ const Management: React.FC<ManagementProps> = ({
           <CreditCard size={18} className="text-blue-500" /> Meus Cartões
         </h3>
         
-        <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-          <div className="md:col-span-1">
-            <input
-              type="text"
-              value={newCardName}
-              onChange={(e) => setNewCardName(e.target.value)}
-              placeholder="Nome do Cartão"
-              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
-              required
-            />
-          </div>
-          <div className="md:col-span-1">
-            <select
-              value={newCardPersonId}
-              onChange={(e) => setNewCardPersonId(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
-              required
-            >
-              <option value="">De quem é?</option>
-              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className="md:col-span-1">
-            <select
-              value={newCardType}
-              onChange={(e) => setNewCardType(e.target.value as CardType)}
-              className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
-            >
-              <option value="CREDIT">Crédito</option>
-              <option value="DEBIT">Débito</option>
-              <option value="BOTH">Ambos</option>
-            </select>
-          </div>
-          <button type="submit" className="bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 font-bold text-sm py-2 hover:bg-blue-700 transition-colors">
-            <Plus size={16} /> Cadastrar
-          </button>
-        </form>
+        {!editingCardId && (
+          <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 animate-in slide-in-from-top-2 duration-300">
+            <div className="md:col-span-1">
+              <input
+                type="text"
+                value={newCardName}
+                onChange={(e) => setNewCardName(e.target.value)}
+                placeholder="Nome do Cartão"
+                className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+                required
+              />
+            </div>
+            <div className="md:col-span-1">
+              <select
+                value={newCardPersonId}
+                onChange={(e) => setNewCardPersonId(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+                required
+              >
+                <option value="">De quem é?</option>
+                {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-1">
+              <select
+                value={newCardType}
+                onChange={(e) => setNewCardType(e.target.value as CardType)}
+                className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+              >
+                <option value="CREDIT">Crédito</option>
+                <option value="DEBIT">Débito</option>
+                <option value="BOTH">Ambos</option>
+              </select>
+            </div>
+            <button type="submit" className="bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 font-bold text-sm py-2 hover:bg-blue-700 transition-colors">
+              <Plus size={16} /> Cadastrar
+            </button>
+          </form>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cards.length === 0 ? (
             <p className="text-slate-400 text-xs italic col-span-full">Nenhum cartão cadastrado.</p>
           ) : (
             cards.map(card => {
+              const isEditing = editingCardId === card.id;
               const person = people.find(p => p.id === card.personId);
+
+              if (isEditing) {
+                return (
+                  <div key={card.id} className="flex flex-col p-4 bg-blue-50 rounded-2xl border-2 border-blue-200 animate-in zoom-in duration-200 space-y-3 shadow-inner">
+                    <input
+                      type="text"
+                      value={editCardName}
+                      onChange={(e) => setEditCardName(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-bold outline-none"
+                    />
+                    <select
+                      value={editCardPersonId}
+                      onChange={(e) => setEditCardPersonId(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs outline-none"
+                    >
+                      {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select
+                      value={editCardType}
+                      onChange={(e) => setEditCardType(e.target.value as CardType)}
+                      className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs outline-none"
+                    >
+                      <option value="CREDIT">Crédito</option>
+                      <option value="DEBIT">Débito</option>
+                      <option value="BOTH">Ambos</option>
+                    </select>
+                    <div className="flex gap-2 pt-1">
+                      <button 
+                        onClick={saveEditCard}
+                        className="flex-1 py-1.5 bg-green-600 text-white rounded-lg flex items-center justify-center gap-1 text-[10px] font-black uppercase hover:bg-green-700"
+                      >
+                        <Check size={14} /> Salvar
+                      </button>
+                      <button 
+                        onClick={() => setEditingCardId(null)}
+                        className="flex-1 py-1.5 bg-slate-200 text-slate-600 rounded-lg flex items-center justify-center gap-1 text-[10px] font-black uppercase hover:bg-slate-300"
+                      >
+                        <X size={14} /> Sair
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <div key={card.id} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group">
-                  <button 
-                    onClick={() => onRemoveCard(card.id)}
-                    className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                <div key={card.id} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group transition-all hover:bg-white hover:shadow-md">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => startEditCard(card)}
+                      className="p-1.5 text-slate-400 hover:text-blue-600 bg-white rounded-lg shadow-sm"
+                      title="Editar"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button 
+                      onClick={() => onRemoveCard(card.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 bg-white rounded-lg shadow-sm"
+                      title="Excluir"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                   <span className="text-sm font-black text-slate-800">{card.name}</span>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-white rounded-full text-blue-600 border border-blue-100 uppercase">

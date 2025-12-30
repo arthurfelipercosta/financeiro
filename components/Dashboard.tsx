@@ -1,7 +1,9 @@
+
 import React, { useMemo, useState } from 'react';
 import { Transaction, Person } from '../types';
 import { formatCurrency } from '../lib/utils';
-import { GoogleGenAI } from "@google/genai";
+// Always use import {GoogleGenAI} from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend
@@ -48,18 +50,14 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'];
 
   const generateAIAnalysis = async () => {
-    const apiKey = process.env.API_KEY;
-    
-    if (!apiKey) {
-      setAnalysis("⚠️ Configuração de IA ausente. Verifique a variável API_KEY.");
-      return;
-    }
+    // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+    // Assume this variable is pre-configured, valid, and accessible.
 
     setIsAnalyzing(true);
     setAnalysis(null);
     try {
-      // Use the correct GoogleGenAI initialization as per SDK guidelines
-      const ai = new GoogleGenAI({ apiKey });
+      // Use this process.env.API_KEY string directly when initializing the @google/genai client instance (must use new GoogleGenAI({ apiKey: process.env.API_KEY })).
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const totalExpense = categoryData.reduce((acc, curr) => acc + curr.value, 0);
       
       const prompt = `Analise os seguintes dados financeiros familiares e dê 3 dicas práticas em português para economizar ou gerir melhor o dinheiro (máximo 150 palavras):
@@ -67,12 +65,13 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, people }) => {
       Gastos por Pessoa: ${personData.map(p => `${p.name}: ${formatCurrency(p.value)}`).join(', ')}
       Total de Gastos: ${formatCurrency(totalExpense)}`;
 
-      const response = await ai.models.generateContent({
+      // Use ai.models.generateContent to query GenAI with both the model name and prompt.
+      const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
       
-      // Use the .text property directly as per the latest SDK requirements
+      // The GenerateContentResponse object features a text property (not a method) that directly returns the string output.
       setAnalysis(response.text || "Não foi possível gerar a análise agora.");
     } catch (err) {
       console.error("Gemini Insight Error:", err);
