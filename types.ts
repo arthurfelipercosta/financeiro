@@ -32,6 +32,7 @@ export interface Transaction {
   installmentsId?: string;
   installmentNumber?: number;
   totalInstallments?: number;
+  isFixed?: boolean; // Identifica se é um gasto recorrente mensal
 }
 
 export interface Person {

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, PaymentMethod, Person, Card, Category } from '../types';
 import { PAYMENT_METHODS } from '../constants';
 import { generateId, parseLocalDate } from '../lib/utils';
-import { X, CreditCard, PiggyBank } from 'lucide-react';
+import { X, CreditCard, PiggyBank, Repeat } from 'lucide-react';
 
 interface TransactionFormProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -24,6 +24,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
   const [personId, setPersonId] = useState(people[0]?.id || '');
   const [isPaid, setIsPaid] = useState(true);
   const [installments, setInstallments] = useState(1);
+  const [isFixed, setIsFixed] = useState(false);
 
   const availableCards = useMemo(() => {
     return cards.filter(c => c.personId === personId);
@@ -32,18 +33,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (type === 'EXPENSE' && installments > 1) {
+    // Lógica para Gasto Fixo (Recorrente 12 meses) ou Parcelado
+    if (type === 'EXPENSE' && (installments > 1 || isFixed)) {
       const transactions: Transaction[] = [];
+      const count = isFixed ? 12 : installments;
       const instId = generateId();
-      const baseAmount = Math.floor((amount / installments) * 100) / 100;
-      const remainder = Math.round((amount - (baseAmount * installments)) * 100) / 100;
+      
+      const baseAmount = isFixed ? amount : (Math.floor((amount / installments) * 100) / 100);
+      const remainder = isFixed ? 0 : (Math.round((amount - (baseAmount * installments)) * 100) / 100);
 
-      for (let i = 0; i < installments; i++) {
+      for (let i = 0; i < count; i++) {
         const d = parseLocalDate(date);
         d.setMonth(d.getMonth() + i);
         const currentAmount = i === 0 ? baseAmount + remainder : baseAmount;
 
-        // Formata novamente para string YYYY-MM-DD mantendo o dia local
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -52,7 +55,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
         transactions.push({
           id: generateId(),
           date: formattedDate,
-          description: `${description} (${i + 1}/${installments})`,
+          description: isFixed ? description : `${description} (${i + 1}/${installments})`,
           amount: currentAmount,
           type,
           category,
@@ -61,8 +64,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
           isPaid: i === 0 ? isPaid : false,
           personId,
           installmentsId: instId,
-          installmentNumber: i + 1,
-          totalInstallments: installments
+          installmentNumber: isFixed ? undefined : i + 1,
+          totalInstallments: isFixed ? undefined : installments,
+          isFixed: isFixed
         });
       }
       onAdd(transactions);
@@ -77,7 +81,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
         paymentMethod,
         cardId: (paymentMethod === 'CREDIT' || paymentMethod === 'DEBIT') ? cardId : undefined,
         isPaid,
-        personId
+        personId,
+        isFixed: false
       }]);
     }
     onClose();
@@ -144,7 +149,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data de Início</label>
               <input
                 required
                 type="date"
@@ -211,20 +216,47 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Parcelas</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="48"
-                    value={installments}
-                    onChange={(e) => setInstallments(Number(e.target.value))}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
+                {!isFixed && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Parcelas</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="48"
+                      value={installments}
+                      onChange={(e) => setInstallments(Number(e.target.value))}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>
+
+          {type === 'EXPENSE' && (
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Repeat size={18} className="text-blue-600" />
+                  <span className="text-sm font-bold text-blue-800">Gasto Fixo / Recorrente</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={isFixed}
+                    onChange={(e) => setIsFixed(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              {isFixed && (
+                <p className="text-[11px] text-blue-600 leading-tight">
+                  Ao ativar, esta conta será repetida automaticamente nos próximos <b>12 meses</b>. Ideal para aluguel, internet, celular, etc.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center space-x-2 pt-2">
             <input

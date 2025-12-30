@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Transaction, Person } from '../types';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { Trash2, Edit3, CheckCircle, Circle, ArrowDown, ArrowUp } from 'lucide-react';
+import { Trash2, CheckCircle, Circle, ArrowDown, ArrowUp, Repeat } from 'lucide-react';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -68,7 +68,10 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-800">{t.description}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-slate-800">{t.description}</span>
+                        {t.isFixed && <Repeat size={12} className="text-blue-500" title="Gasto Fixo" />}
+                      </div>
                       <span className="text-xs text-slate-400">{t.paymentMethod}</span>
                     </div>
                   </td>
