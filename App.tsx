@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
@@ -65,18 +64,18 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // 1. Iniciar App do Firebase
+  // 1. Inicialização segura do Firebase App
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
       const app = getApps().length > 0 ? getApp() : initializeApp(config);
       setFirebaseApp(app);
     } catch (err) {
-      console.error("Firebase App error:", err);
+      console.error("Firebase App initialization failed:", err);
     }
   }, [cloudConfig.fullConfig]);
 
-  // 2. Iniciar Auth e Monitorar Usuário
+  // 2. Inicialização do Auth uma vez que o App esteja pronto
   useEffect(() => {
     if (!firebaseApp) return;
 
@@ -86,7 +85,7 @@ const App: React.FC = () => {
         setUser(currentUser);
         setIsAuthLoading(false);
       }, (err) => {
-        console.error("Auth status error:", err);
+        console.error("Auth observer error:", err);
         setIsAuthLoading(false);
       });
       return () => unsubscribe();
@@ -96,7 +95,7 @@ const App: React.FC = () => {
     }
   }, [firebaseApp]);
 
-  // 3. Sincronização de Dados
+  // 3. Sincronização de Dados Real-time (Entrada)
   useEffect(() => {
     if (user && cloudConfig.enabled && firebaseApp) {
       setIsSyncing(true);
@@ -113,7 +112,7 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       }, (err) => {
-        console.error("Database error:", err);
+        console.error("Database read error:", err);
         setIsSyncing(false);
       });
 
@@ -121,7 +120,7 @@ const App: React.FC = () => {
     }
   }, [user, cloudConfig.enabled, cloudConfig.familySecret, firebaseApp]);
 
-  // 4. Salvar Dados
+  // 4. Persistência de Dados (Saída)
   useEffect(() => {
     localStorage.setItem('family_finance_transactions', JSON.stringify(transactions));
     localStorage.setItem('family_finance_people', JSON.stringify(people));
@@ -199,7 +198,7 @@ const App: React.FC = () => {
     return (
       <div className="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Acessando Banco de Dados...</p>
+        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Carregando Finanças...</p>
       </div>
     );
   }

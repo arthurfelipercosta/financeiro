@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -19,10 +19,22 @@ interface ManagementProps {
   onManualSync: () => void;
 }
 
+const PRESET_COLORS = [
+  '#3b82f6', // Blue
+  '#10b981', // Green
+  '#f43f5e', // Rose
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#64748b', // Slate
+];
+
 const Management: React.FC<ManagementProps> = ({ 
   people, cards, categories, cloudConfig, onUpdateCloudConfig, onAddPerson, onRemovePerson, onAddCard, onRemoveCard, onAddCategory, onRemoveCategory
 }) => {
   const [newPersonName, setNewPersonName] = useState('');
+  const [newPersonColor, setNewPersonColor] = useState(PRESET_COLORS[0]);
   const [newCategoryName, setNewCategoryName] = useState('');
   
   // States para novo cartão
@@ -62,8 +74,15 @@ const Management: React.FC<ManagementProps> = ({
   const handleAddPerson = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPersonName.trim()) return;
-    onAddPerson({ id: generateId(), name: newPersonName, color: '#3b82f6' });
+    onAddPerson({ 
+      id: generateId(), 
+      name: newPersonName, 
+      color: newPersonColor 
+    });
     setNewPersonName('');
+    // Rotaciona a cor para a próxima do preset automaticamente
+    const currentIndex = PRESET_COLORS.indexOf(newPersonColor);
+    setNewPersonColor(PRESET_COLORS[(currentIndex + 1) % PRESET_COLORS.length]);
   };
 
   const handleAddCategory = (e: React.FormEvent) => {
@@ -86,7 +105,7 @@ const Management: React.FC<ManagementProps> = ({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12">
       {/* Firebase Config Card */}
       <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-blue-50 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
@@ -233,7 +252,7 @@ const Management: React.FC<ManagementProps> = ({
               placeholder="Adicionar..."
               className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
             />
-            <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={20} /></button>
+            <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg transition-transform active:scale-90"><Plus size={20} /></button>
           </form>
           <div className="flex flex-wrap gap-2">
             {categories.map(cat => (
@@ -249,24 +268,57 @@ const Management: React.FC<ManagementProps> = ({
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
             <User size={18} className="text-blue-500" /> Membros da Família
           </h3>
-          <form onSubmit={handleAddPerson} className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={newPersonName}
-              onChange={(e) => setNewPersonName(e.target.value)}
-              placeholder="Nome..."
-              className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
-            />
-            <button type="submit" className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={20} /></button>
+          <form onSubmit={handleAddPerson} className="space-y-4 mb-6">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newPersonName}
+                onChange={(e) => setNewPersonName(e.target.value)}
+                placeholder="Nome..."
+                className="flex-1 px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+              />
+              <button 
+                type="submit" 
+                className="p-2 bg-blue-600 text-white rounded-lg transition-transform active:scale-90 shadow-md"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                <Palette size={10} /> Cor de Identificação
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewPersonColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      newPersonColor === color ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent scale-100 opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
           </form>
+
           <div className="space-y-2">
             {people.map(p => (
-              <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                  <span className="text-sm font-bold text-slate-700">{p.name}</span>
+              <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 group">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full shadow-inner" style={{ backgroundColor: p.color }} />
+                  <span className="text-sm font-black text-slate-700">{p.name}</span>
                 </div>
-                <button onClick={() => onRemovePerson(p.id)} className="p-1 text-slate-300 hover:text-red-500" disabled={people.length <= 1}><Trash2 size={14} /></button>
+                <button 
+                  onClick={() => onRemovePerson(p.id)} 
+                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100" 
+                  disabled={people.length <= 1}
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             ))}
           </div>
