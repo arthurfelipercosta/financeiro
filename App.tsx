@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { getDatabase, ref, onValue, set } from 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
-import { getMonthYear, generateId } from './lib/utils';
+import { getMonthYear, getMonthYearFromStr, generateId } from './lib/utils';
 import Summary from './components/Summary';
 import Dashboard from './components/Dashboard';
 import TransactionForm from './components/TransactionForm';
@@ -64,7 +65,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // 1. Inicialização segura do Firebase App
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
@@ -75,10 +75,8 @@ const App: React.FC = () => {
     }
   }, [cloudConfig.fullConfig]);
 
-  // 2. Inicialização do Auth uma vez que o App esteja pronto
   useEffect(() => {
     if (!firebaseApp) return;
-
     try {
       const auth = getAuth(firebaseApp);
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -95,13 +93,11 @@ const App: React.FC = () => {
     }
   }, [firebaseApp]);
 
-  // 3. Sincronização de Dados Real-time (Entrada)
   useEffect(() => {
     if (user && cloudConfig.enabled && firebaseApp) {
       setIsSyncing(true);
       const db = getDatabase(firebaseApp);
       const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
-
       const unsubscribe = onValue(dataRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -115,26 +111,21 @@ const App: React.FC = () => {
         console.error("Database read error:", err);
         setIsSyncing(false);
       });
-
       return () => unsubscribe();
     }
   }, [user, cloudConfig.enabled, cloudConfig.familySecret, firebaseApp]);
 
-  // 4. Persistência de Dados (Saída)
   useEffect(() => {
     localStorage.setItem('family_finance_transactions', JSON.stringify(transactions));
     localStorage.setItem('family_finance_people', JSON.stringify(people));
     localStorage.setItem('family_finance_cards', JSON.stringify(cards));
     localStorage.setItem('family_finance_categories', JSON.stringify(categories));
-
     if (user && cloudConfig.enabled && !isSyncing && firebaseApp) {
       const db = getDatabase(firebaseApp);
       const dataRef = ref(db, `data/${cloudConfig.familySecret}`);
-      
       const timer = setTimeout(() => {
         set(dataRef, { transactions, people, cards, categories }).catch(console.error);
       }, 1500);
-      
       return () => clearTimeout(timer);
     }
   }, [transactions, people, cards, categories, user, cloudConfig.enabled, isSyncing, firebaseApp]);
@@ -148,7 +139,8 @@ const App: React.FC = () => {
   const currentMonthStr = useMemo(() => getMonthYear(currentDate), [currentDate]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => getMonthYear(new Date(t.date)) === currentMonthStr);
+    // Usamos getMonthYearFromStr para comparar diretamente a string "YYYY-MM"
+    return transactions.filter(t => getMonthYearFromStr(t.date) === currentMonthStr);
   }, [transactions, currentMonthStr]);
 
   const handleAddTransactions = useCallback((newItems: Transaction[]) => {
@@ -238,7 +230,6 @@ const App: React.FC = () => {
               </button>
             )}
           </div>
-
           <div className="flex items-center justify-between bg-slate-100 rounded-xl p-1 md:w-auto">
             <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white rounded-lg transition-colors text-slate-600">
               <ChevronLeft size={20} />
@@ -253,7 +244,6 @@ const App: React.FC = () => {
               <ChevronRight size={20} />
             </button>
           </div>
-
           <div className="hidden md:block">
             <button onClick={() => setShowForm(true)} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
               <Plus size={20} /> Nova Transação
@@ -261,7 +251,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
-
       <main className="max-w-6xl mx-auto px-4 pt-6">
         <div className="mb-8 flex flex-wrap gap-1 bg-slate-200 p-1 rounded-xl w-fit">
           <button onClick={() => setActiveTab('summary')} className={`flex items-center space-x-2 px-4 md:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'summary' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-300'}`}>
@@ -277,7 +266,6 @@ const App: React.FC = () => {
             <Settings size={18} /> <span className="hidden sm:inline">Gestão</span>
           </button>
         </div>
-
         {activeTab === 'summary' && <Summary transactions={filteredTransactions} people={people} />}
         {activeTab === 'dashboard' && <Dashboard transactions={filteredTransactions} people={people} />}
         {activeTab === 'transactions' && <TransactionList transactions={filteredTransactions} people={people} onDelete={handleDelete} onTogglePaid={handleTogglePaid} onUpdateAmount={handleUpdateAmount} />}
@@ -298,13 +286,11 @@ const App: React.FC = () => {
           />
         )}
       </main>
-
       <div className="md:hidden fixed bottom-20 right-6 z-50">
         <button onClick={() => setShowForm(true)} className="w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform">
           <Plus size={28} />
         </button>
       </div>
-
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-3 flex justify-around items-center z-40">
         <button onClick={() => setActiveTab('summary')} className={`flex flex-col items-center gap-1 min-w-[64px] ${activeTab === 'summary' ? 'text-blue-600' : 'text-slate-400'}`}>
           <LayoutDashboard size={20} /> <span className="text-[10px] font-bold">Resumo</span>
@@ -319,7 +305,6 @@ const App: React.FC = () => {
           <Settings size={20} /> <span className="text-[10px] font-bold">Gestão</span>
         </button>
       </div>
-
       {showForm && <TransactionForm onAdd={handleAddTransactions} onClose={() => setShowForm(false)} people={people} cards={cards} categories={categories} />}
       {showMonthPicker && <MonthPickerModal currentDate={currentDate} onSelect={setCurrentDate} onClose={() => setShowMonthPicker(false)} />}
     </div>

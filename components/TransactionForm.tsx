@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, PaymentMethod, Person, Card, Category } from '../types';
 import { PAYMENT_METHODS } from '../constants';
-import { generateId } from '../lib/utils';
+import { generateId, parseLocalDate } from '../lib/utils';
 import { X, CreditCard, PiggyBank } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -39,13 +39,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
       const remainder = Math.round((amount - (baseAmount * installments)) * 100) / 100;
 
       for (let i = 0; i < installments; i++) {
-        const d = new Date(date);
+        const d = parseLocalDate(date);
         d.setMonth(d.getMonth() + i);
         const currentAmount = i === 0 ? baseAmount + remainder : baseAmount;
 
+        // Formata novamente para string YYYY-MM-DD mantendo o dia local
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+
         transactions.push({
           id: generateId(),
-          date: d.toISOString().split('T')[0],
+          date: formattedDate,
           description: `${description} (${i + 1}/${installments})`,
           amount: currentAmount,
           type,
