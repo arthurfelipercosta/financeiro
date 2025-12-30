@@ -15,6 +15,7 @@ export interface Card {
   name: string;
   personId: string;
   type: CardType;
+  closingDay: number; // Dia que a fatura fecha (ex: 5)
   lastDigits?: string;
 }
 

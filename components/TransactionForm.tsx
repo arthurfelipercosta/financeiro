@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, TransactionType, PaymentMethod, Person, Card, Category } from '../types';
 import { PAYMENT_METHODS } from '../constants';
 import { generateId, parseLocalDate, formatCurrency } from '../lib/utils';
-import { X, CreditCard, PiggyBank, Repeat, Info, Calculator, Check } from 'lucide-react';
+import { X, CreditCard, PiggyBank, Repeat, Info, Calculator, Check, AlertCircle } from 'lucide-react';
 
 interface TransactionFormProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -40,6 +40,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
     });
   }, [cards, personId, paymentMethod]);
 
+  // Lógica de Melhor Dia de Compra
+  const billForecast = useMemo(() => {
+    if (paymentMethod !== 'CREDIT' || !cardId) return null;
+    const selectedCard = cards.find(c => c.id === cardId);
+    if (!selectedCard || !selectedCard.closingDay) return null;
+
+    const purchaseDate = parseLocalDate(date);
+    const closingDay = selectedCard.closingDay;
+    const purchaseDay = purchaseDate.getDate();
+
+    const forecastDate = new Date(purchaseDate);
+    // Se comprou DEPOIS ou NO DIA do fechamento, a 1ª parcela vai para o próximo mês
+    if (purchaseDay >= closingDay) {
+      forecastDate.setMonth(forecastDate.getMonth() + 1);
+    }
+
+    return forecastDate;
+  }, [date, paymentMethod, cardId, cards]);
+
   useEffect(() => {
     if (cardId) {
       const isStillValid = filteredCards.some(c => c.id === cardId);
@@ -49,6 +68,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Determina a data de início real baseada no fechamento do cartão
+    const baseDate = billForecast || parseLocalDate(date);
     
     if (type === 'EXPENSE' && (installments > 1 || isFixed)) {
       const transactions: Transaction[] = [];
@@ -71,7 +93,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
       }
 
       for (let i = 0; i < count; i++) {
-        const d = parseLocalDate(date);
+        const d = new Date(baseDate);
         d.setMonth(d.getMonth() + i);
 
         const currentAmount = i === 0 ? firstInstallmentAmount : perInstallmentAmount;
@@ -93,7 +115,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
           category,
           paymentMethod,
           cardId: (paymentMethod === 'CREDIT' || paymentMethod === 'DEBIT') ? cardId : undefined,
-          isPaid: i === 0 ? isPaid : false,
+          isPaid: i === 0 && paymentMethod !== 'CREDIT' ? isPaid : false,
           personId,
           installmentsId: instId,
           installmentNumber: isFixed ? undefined : i + 1,
@@ -103,16 +125,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
       }
       onAdd(transactions);
     } else {
+      const year = baseDate.getFullYear();
+      const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+      const day = String(baseDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
       onAdd([{
         id: generateId(),
-        date,
+        date: formattedDate,
         description,
         amount,
         type,
         category: type === 'SAVINGS' ? 'Poupança' : category,
         paymentMethod,
         cardId: (paymentMethod === 'CREDIT' || paymentMethod === 'DEBIT') ? cardId : undefined,
-        isPaid,
+        isPaid: paymentMethod === 'CREDIT' ? false : isPaid,
         personId,
         isFixed: false
       }]);
@@ -163,7 +190,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={type === 'SAVINGS' ? 'Ex: Depósito Mensal, Reserva...' : 'Ex: Supermercado, Aluguel...'}
+                placeholder={type === 'SAVINGS' ? 'Ex: Reserva de Emergência...' : 'Ex: Supermercado, Aluguel...'}
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
@@ -203,29 +230,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                 />
                 <Calculator className="absolute right-4 top-3.5 text-slate-300" size={20} />
               </div>
-              
-              {installments > 1 && !isFixed && amount > 0 && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100 animate-in slide-in-from-top-1">
-                  <div className="flex justify-between items-center text-[11px] font-black text-blue-700 uppercase tracking-wider">
-                    <span>{calculationType === 'TOTAL' ? 'Divisão Sugerida' : 'Custo Final'}</span>
-                    <span>{calculationType === 'TOTAL' ? 'Arredondamento Automático' : 'Multiplicação Simples'}</span>
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-sm font-bold text-blue-900">
-                      {calculationType === 'TOTAL' 
-                        ? `${installments}x sendo a 1ª de ${formatCurrency(amount - (Math.floor((amount/installments)*100)/100)*(installments-1))}`
-                        : `${installments}x de ${formatCurrency(amount)}`}
-                    </span>
-                    <span className="text-xs text-blue-600">
-                      (Total: {formatCurrency(calculationType === 'TOTAL' ? amount : amount * installments)})
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data da 1ª Parcela</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data da Compra</label>
               <input
                 required
                 type="date"
@@ -249,7 +257,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Pessoa Responsável</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Responsável</label>
               <select
                 value={personId}
                 onChange={(e) => setPersonId(e.target.value)}
@@ -289,7 +297,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                       <option value="">Selecione um cartão</option>
                       {filteredCards.map(c => (
                         <option key={c.id} value={c.id}>
-                          {c.name} {c.type === 'BOTH' ? '(Multifunção)' : ''}
+                          {c.name} {c.closingDay ? `(Fecha dia ${c.closingDay})` : ''}
                         </option>
                       ))}
                     </select>
@@ -298,7 +306,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
 
                 {!isFixed && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Número de Parcelas</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Parcelas</label>
                     <input
                       type="number"
                       min="1"
@@ -313,12 +321,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
             )}
           </div>
 
+          {/* Forecast da Fatura */}
+          {billForecast && (
+            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle size={16} className="text-amber-600" />
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider">Atenção à Fatura</span>
+              </div>
+              <p className="text-sm text-amber-700">
+                Esta compra cairá no extrato de <b>{billForecast.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</b>.
+              </p>
+            </div>
+          )}
+
           {type === 'EXPENSE' && (
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Repeat size={18} className="text-blue-600" />
-                  <span className="text-sm font-bold text-blue-800">Gasto Fixo / Recorrente</span>
+                  <span className="text-sm font-bold text-blue-800">Gasto Fixo Mensal</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
@@ -330,26 +351,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
-              {isFixed && (
-                <p className="text-[11px] text-blue-600 leading-tight font-medium">
-                  Isso criará automaticamente 12 meses desta conta no seu extrato.
-                </p>
-              )}
             </div>
           )}
 
-          <div className="flex items-center space-x-2 pt-2">
-            <input
-              type="checkbox"
-              id="isPaid"
-              checked={isPaid}
-              onChange={(e) => setIsPaid(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <label htmlFor="isPaid" className="text-sm font-medium text-slate-700">
-              {type === 'INCOME' ? 'Já recebi este valor' : 'Já está pago?'}
-            </label>
-          </div>
+          {paymentMethod !== 'CREDIT' && (
+            <div className="flex items-center space-x-2 pt-2">
+              <input
+                type="checkbox"
+                id="isPaid"
+                checked={isPaid}
+                onChange={(e) => setIsPaid(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded"
+              />
+              <label htmlFor="isPaid" className="text-sm font-medium text-slate-700">
+                {type === 'INCOME' ? 'Já recebi este valor' : 'Já está pago?'}
+              </label>
+            </div>
+          )}
 
           <div className="pt-4 flex space-x-3">
             <button
@@ -363,7 +381,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
               type="submit"
               className="flex-1 py-3 px-4 bg-blue-600 rounded-xl text-white font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
             >
-              Salvar
+              Confirmar
             </button>
           </div>
         </form>

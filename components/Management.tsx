@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, CreditCard, Palette, Pencil, Check, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, CreditCard, Palette, Pencil, Check, X, AlertTriangle, CalendarDays } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -41,12 +41,14 @@ const Management: React.FC<ManagementProps> = ({
   const [newCardName, setNewCardName] = useState('');
   const [newCardPersonId, setNewCardPersonId] = useState(people[0]?.id || '');
   const [newCardType, setNewCardType] = useState<CardType>('BOTH');
+  const [newCardClosingDay, setNewCardClosingDay] = useState(5);
 
   // Estado para edição de cartão
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editCardName, setEditCardName] = useState('');
   const [editCardPersonId, setEditCardPersonId] = useState('');
   const [editCardType, setEditCardType] = useState<CardType>('BOTH');
+  const [editCardClosingDay, setEditCardClosingDay] = useState(5);
 
   // Estado para Confirmação de Exclusão
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'CARD' | 'PERSON' | 'CATEGORY', name: string } | null>(null);
@@ -107,9 +109,11 @@ const Management: React.FC<ManagementProps> = ({
       id: generateId(),
       name: newCardName,
       personId: newCardPersonId,
-      type: newCardType
+      type: newCardType,
+      closingDay: newCardClosingDay
     });
     setNewCardName('');
+    setNewCardClosingDay(5);
   };
 
   const startEditCard = (card: Card) => {
@@ -117,6 +121,7 @@ const Management: React.FC<ManagementProps> = ({
     setEditCardName(card.name);
     setEditCardPersonId(card.personId);
     setEditCardType(card.type);
+    setEditCardClosingDay(card.closingDay || 5);
   };
 
   const saveEditCard = () => {
@@ -125,7 +130,8 @@ const Management: React.FC<ManagementProps> = ({
       id: editingCardId,
       name: editCardName,
       personId: editCardPersonId,
-      type: editCardType
+      type: editCardType,
+      closingDay: editCardClosingDay
     });
     setEditingCardId(null);
   };
@@ -242,13 +248,13 @@ const Management: React.FC<ManagementProps> = ({
         </h3>
         
         {!editingCardId && (
-          <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8 animate-in slide-in-from-top-2 duration-300">
+          <form onSubmit={handleAddCard} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-8 animate-in slide-in-from-top-2 duration-300">
             <div className="md:col-span-1">
               <input
                 type="text"
                 value={newCardName}
                 onChange={(e) => setNewCardName(e.target.value)}
-                placeholder="Nome do Cartão (ex: Nub)"
+                placeholder="Nome (ex: Nub)"
                 className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
                 required
               />
@@ -260,7 +266,7 @@ const Management: React.FC<ManagementProps> = ({
                 className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
                 required
               >
-                <option value="">Selecione o Dono</option>
+                <option value="">Dono</option>
                 {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
@@ -272,8 +278,21 @@ const Management: React.FC<ManagementProps> = ({
               >
                 <option value="CREDIT">Crédito</option>
                 <option value="DEBIT">Débito</option>
-                <option value="BOTH">Ambos (Crédito/Débito)</option>
+                <option value="BOTH">Ambos</option>
               </select>
+            </div>
+            <div className="md:col-span-1">
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={newCardClosingDay}
+                onChange={(e) => setNewCardClosingDay(Number(e.target.value))}
+                placeholder="Fecha dia"
+                title="Dia de fechamento da fatura"
+                className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
+                required
+              />
             </div>
             <button type="submit" className="bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 font-bold text-sm py-2 hover:bg-blue-700 transition-colors">
               <Plus size={16} /> Cadastrar
@@ -312,7 +331,6 @@ const Management: React.FC<ManagementProps> = ({
                       value={editCardName}
                       onChange={(e) => setEditCardName(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Nome do cartão"
                     />
                     <select
                       value={editCardPersonId}
@@ -321,15 +339,26 @@ const Management: React.FC<ManagementProps> = ({
                     >
                       {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
-                    <select
-                      value={editCardType}
-                      onChange={(e) => setEditCardType(e.target.value as CardType)}
-                      className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm outline-none"
-                    >
-                      <option value="CREDIT">Crédito</option>
-                      <option value="DEBIT">Débito</option>
-                      <option value="BOTH">Ambos (Crédito/Débito)</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={editCardType}
+                        onChange={(e) => setEditCardType(e.target.value as CardType)}
+                        className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm outline-none"
+                      >
+                        <option value="CREDIT">Crédito</option>
+                        <option value="DEBIT">Débito</option>
+                        <option value="BOTH">Ambos</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={editCardClosingDay}
+                        onChange={(e) => setEditCardClosingDay(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm outline-none"
+                        placeholder="Dia Fecha"
+                      />
+                    </div>
                     <div className="flex gap-2 pt-1">
                       <button 
                         onClick={saveEditCard}
@@ -367,11 +396,16 @@ const Management: React.FC<ManagementProps> = ({
                         card.type === 'BOTH' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 
                         card.type === 'CREDIT' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
                       }`}>
-                        {card.type === 'BOTH' ? 'Crédito/Débito' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
+                        {card.type === 'BOTH' ? 'Multifunção' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
                       </span>
                       <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
                         <User size={10} /> {person?.name || '---'}
                       </span>
+                      {card.type !== 'DEBIT' && (
+                        <span className="text-[10px] text-blue-500 font-black uppercase flex items-center gap-1">
+                          <CalendarDays size={10} /> Fecha dia {card.closingDay || 5}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
