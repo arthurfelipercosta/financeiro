@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink, Pencil, Check, X, AlertTriangle } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -47,6 +47,9 @@ const Management: React.FC<ManagementProps> = ({
   const [editCardName, setEditCardName] = useState('');
   const [editCardPersonId, setEditCardPersonId] = useState('');
   const [editCardType, setEditCardType] = useState<CardType>('BOTH');
+
+  // Estado para Confirmação de Exclusão
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'CARD' | 'PERSON' | 'CATEGORY', name: string } | null>(null);
 
   const [firebaseConfigJson, setFirebaseConfigJson] = useState(
     cloudConfig.fullConfig ? JSON.stringify(cloudConfig.fullConfig, null, 2) : ''
@@ -127,8 +130,53 @@ const Management: React.FC<ManagementProps> = ({
     setEditingCardId(null);
   };
 
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+
+    if (deleteTarget.type === 'CARD') {
+      onRemoveCard(deleteTarget.id);
+      setEditingCardId(null);
+    } else if (deleteTarget.type === 'PERSON') {
+      onRemovePerson(deleteTarget.id);
+    } else if (deleteTarget.type === 'CATEGORY') {
+      onRemoveCategory(deleteTarget.id);
+    }
+    setDeleteTarget(null);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12">
+      {/* Modal de Confirmação Customizado */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-in zoom-in duration-300">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-red-50 p-4 rounded-full text-red-500 mb-6 ring-8 ring-red-50/50">
+                <AlertTriangle size={32} />
+              </div>
+              <h4 className="text-xl font-black text-slate-800 mb-2">Tem certeza?</h4>
+              <p className="text-slate-500 text-sm mb-8 leading-relaxed">
+                Você está prestes a excluir <b>"{deleteTarget.name}"</b>. Esta ação não poderá ser desfeita e pode afetar registros vinculados.
+              </p>
+              <div className="flex flex-col w-full gap-3">
+                <button 
+                  onClick={confirmDelete}
+                  className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-red-700 transition-all shadow-lg shadow-red-100 active:scale-95"
+                >
+                  Sim, Excluir permanentemente
+                </button>
+                <button 
+                  onClick={() => setDeleteTarget(null)}
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Cancelar e Voltar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Guia de Segurança */}
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-100 p-8 rounded-3xl shadow-sm">
         <div className="flex items-center gap-4 mb-6">
@@ -297,10 +345,7 @@ const Management: React.FC<ManagementProps> = ({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          if(confirm('Deseja excluir este cartão?')) {
-                            onRemoveCard(card.id);
-                            setEditingCardId(null);
-                          }
+                          setDeleteTarget({ id: card.id, type: 'CARD', name: card.name });
                         }}
                         className="text-red-500 hover:text-red-700 p-1"
                         title="Excluir Cartão"
@@ -404,7 +449,12 @@ const Management: React.FC<ManagementProps> = ({
             {categories.map(cat => (
               <span key={cat.id} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold flex items-center gap-2 group">
                 {cat.name}
-                <button onClick={() => onRemoveCategory(cat.id)} className="hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+                <button 
+                  onClick={() => setDeleteTarget({ id: cat.id, type: 'CATEGORY', name: cat.name })} 
+                  className="hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={12} />
+                </button>
               </span>
             ))}
           </div>
@@ -459,7 +509,7 @@ const Management: React.FC<ManagementProps> = ({
                   <span className="text-sm font-black text-slate-700">{p.name}</span>
                 </div>
                 <button 
-                  onClick={() => onRemovePerson(p.id)} 
+                  onClick={() => setDeleteTarget({ id: p.id, type: 'PERSON', name: p.name })} 
                   className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100" 
                   disabled={people.length <= 1}
                 >
