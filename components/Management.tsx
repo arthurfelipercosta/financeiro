@@ -295,7 +295,8 @@ const Management: React.FC<ManagementProps> = ({
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-black text-blue-600 uppercase">Editando Cartão</label>
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if(confirm('Deseja excluir este cartão?')) {
                             onRemoveCard(card.id);
                             setEditingCardId(null);
