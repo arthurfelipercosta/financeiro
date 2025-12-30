@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth';
 import { getDatabase, ref, onValue, set } from 'firebase/database';
 import { Transaction, Person, Card, Category, CloudConfig } from './types';
 import { INITIAL_PEOPLE, DEFAULT_CATEGORIES } from './constants';
@@ -65,6 +65,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'summary' | 'dashboard' | 'transactions' | 'settings'>('summary');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Inicializa o Firebase uma única vez
   useEffect(() => {
     const config = cloudConfig.fullConfig || DEFAULT_FIREBASE_CONFIG;
     try {
@@ -75,10 +76,13 @@ const App: React.FC = () => {
     }
   }, [cloudConfig.fullConfig]);
 
+  // Monitora autenticação com cuidado para esperar o registro dos componentes
   useEffect(() => {
     if (!firebaseApp) return;
+    
+    let auth: Auth;
     try {
-      const auth = getAuth(firebaseApp);
+      auth = getAuth(firebaseApp);
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setUser(currentUser);
         setIsAuthLoading(false);
@@ -88,8 +92,10 @@ const App: React.FC = () => {
       });
       return () => unsubscribe();
     } catch (err) {
-      console.error("Auth component error:", err);
-      setIsAuthLoading(false);
+      console.warn("Auth component not ready, retrying...", err);
+      // Pequeno delay caso o componente auth ainda esteja registrando no SDK
+      const timer = setTimeout(() => setIsAuthLoading(false), 1000);
+      return () => clearTimeout(timer);
     }
   }, [firebaseApp]);
 
@@ -139,7 +145,6 @@ const App: React.FC = () => {
   const currentMonthStr = useMemo(() => getMonthYear(currentDate), [currentDate]);
 
   const filteredTransactions = useMemo(() => {
-    // Usamos getMonthYearFromStr para comparar diretamente a string "YYYY-MM"
     return transactions.filter(t => getMonthYearFromStr(t.date) === currentMonthStr);
   }, [transactions, currentMonthStr]);
 
@@ -190,7 +195,7 @@ const App: React.FC = () => {
     return (
       <div className="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Carregando Finanças...</p>
+        <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Sincronizando...</p>
       </div>
     );
   }

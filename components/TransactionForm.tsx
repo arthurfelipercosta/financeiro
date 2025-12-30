@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, TransactionType, PaymentMethod, Person, Card, Category } from '../types';
 import { PAYMENT_METHODS } from '../constants';
-import { generateId, parseLocalDate } from '../lib/utils';
-import { X, CreditCard, PiggyBank, Repeat, Info } from 'lucide-react';
+import { generateId, parseLocalDate, formatCurrency } from '../lib/utils';
+import { X, CreditCard, PiggyBank, Repeat, Info, Calculator, Check } from 'lucide-react';
 
 interface TransactionFormProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -13,10 +13,13 @@ interface TransactionFormProps {
   categories: Category[];
 }
 
+type CalculationType = 'TOTAL' | 'INSTALLMENT';
+
 const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, people, cards, categories }) => {
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<number>(0);
+  const [calculationType, setCalculationType] = useState<CalculationType>('INSTALLMENT');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState(categories[0]?.name || 'Outros');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('DEBIT');
@@ -26,24 +29,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
   const [installments, setInstallments] = useState(1);
   const [isFixed, setIsFixed] = useState(false);
 
-  // Filtra cartões disponíveis para a pessoa e para o método de pagamento
+  // Filtra cartões disponíveis
   const filteredCards = useMemo(() => {
     return cards.filter(c => {
       const isOwner = c.personId === personId;
       if (!isOwner) return false;
-
-      if (paymentMethod === 'CREDIT') {
-        return c.type === 'CREDIT' || c.type === 'BOTH';
-      }
-      if (paymentMethod === 'DEBIT') {
-        return c.type === 'DEBIT' || c.type === 'BOTH';
-      }
+      if (paymentMethod === 'CREDIT') return c.type === 'CREDIT' || c.type === 'BOTH';
+      if (paymentMethod === 'DEBIT') return c.type === 'DEBIT' || c.type === 'BOTH';
       return false;
     });
   }, [cards, personId, paymentMethod]);
 
-  // Se o método de pagamento mudar e o cartão atual não for mais válido, limpa a seleção
-  // Mas se for um cartão "Ambos", ele permanece selecionado ao trocar entre Crédito/Débito
   useEffect(() => {
     if (cardId) {
       const isStillValid = filteredCards.some(c => c.id === cardId);
@@ -59,23 +55,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
       const count = isFixed ? 12 : installments;
       const instId = generateId();
       
-      const baseAmount = isFixed ? amount : (Math.floor((amount / installments) * 100) / 100);
-      const remainder = isFixed ? 0 : (Math.round((amount - (baseAmount * installments)) * 100) / 100);
+      let perInstallmentAmount = 0;
+      let firstInstallmentAmount = 0;
+      let totalPurchaseAmount = 0;
+
+      if (calculationType === 'TOTAL') {
+        totalPurchaseAmount = amount;
+        perInstallmentAmount = Math.floor((amount / count) * 100) / 100;
+        const remainder = Math.round((amount - (perInstallmentAmount * count)) * 100) / 100;
+        firstInstallmentAmount = Math.round((perInstallmentAmount + remainder) * 100) / 100;
+      } else {
+        perInstallmentAmount = amount;
+        firstInstallmentAmount = amount;
+        totalPurchaseAmount = amount * count;
+      }
 
       for (let i = 0; i < count; i++) {
         const d = parseLocalDate(date);
         d.setMonth(d.getMonth() + i);
-        const currentAmount = i === 0 ? baseAmount + remainder : baseAmount;
 
+        const currentAmount = i === 0 ? firstInstallmentAmount : perInstallmentAmount;
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         const formattedDate = `${year}-${month}-${day}`;
 
+        const installmentDesc = isFixed 
+          ? description 
+          : `${description} (${i + 1}/${installments})`;
+
         transactions.push({
           id: generateId(),
           date: formattedDate,
-          description: isFixed ? description : `${description} (${i + 1}/${installments})`,
+          description: installmentDesc,
           amount: currentAmount,
           type,
           category,
@@ -156,20 +168,64 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
               />
             </div>
             
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Valor (R$)</label>
-              <input
-                required
-                type="number"
-                step="0.01"
-                value={amount || ''}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">
+                  {calculationType === 'TOTAL' ? 'Valor Total (R$)' : 'Valor da Parcela (R$)'}
+                </label>
+                {type === 'EXPENSE' && installments > 1 && !isFixed && (
+                  <div className="flex bg-slate-200 p-1 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setCalculationType('INSTALLMENT')}
+                      className={`flex items-center gap-1 px-3 py-1 text-[10px] font-black rounded-md transition-all uppercase ${calculationType === 'INSTALLMENT' ? 'bg-white shadow-md text-blue-600' : 'text-slate-500'}`}
+                    >
+                      {calculationType === 'INSTALLMENT' && <Check size={10} />} Por Parcela
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalculationType('TOTAL')}
+                      className={`flex items-center gap-1 px-3 py-1 text-[10px] font-black rounded-md transition-all uppercase ${calculationType === 'TOTAL' ? 'bg-white shadow-md text-blue-600' : 'text-slate-500'}`}
+                    >
+                      {calculationType === 'TOTAL' && <Check size={10} />} Total
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  value={amount || ''}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:ring-0 outline-none pr-12 text-lg font-bold text-slate-800"
+                />
+                <Calculator className="absolute right-4 top-3.5 text-slate-300" size={20} />
+              </div>
+              
+              {installments > 1 && !isFixed && amount > 0 && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100 animate-in slide-in-from-top-1">
+                  <div className="flex justify-between items-center text-[11px] font-black text-blue-700 uppercase tracking-wider">
+                    <span>{calculationType === 'TOTAL' ? 'Divisão Sugerida' : 'Custo Final'}</span>
+                    <span>{calculationType === 'TOTAL' ? 'Arredondamento Automático' : 'Multiplicação Simples'}</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-sm font-bold text-blue-900">
+                      {calculationType === 'TOTAL' 
+                        ? `${installments}x sendo a 1ª de ${formatCurrency(amount - (Math.floor((amount/installments)*100)/100)*(installments-1))}`
+                        : `${installments}x de ${formatCurrency(amount)}`}
+                    </span>
+                    <span className="text-xs text-blue-600">
+                      (Total: {formatCurrency(calculationType === 'TOTAL' ? amount : amount * installments)})
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data de Início</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Data da 1ª Parcela</label>
               <input
                 required
                 type="date"
@@ -220,11 +276,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                   <div className="animate-in slide-in-from-top-2 duration-300">
                     <label className="block text-xs font-semibold text-slate-500 uppercase mb-1 flex items-center justify-between">
                       Cartão
-                      {paymentMethod === 'CREDIT' ? (
-                        <span className="text-[9px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase">Função Crédito</span>
-                      ) : (
-                        <span className="text-[9px] text-green-500 bg-green-50 px-1.5 py-0.5 rounded border border-green-100 uppercase">Função Débito</span>
-                      )}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase ${paymentMethod === 'CREDIT' ? 'text-blue-500 bg-blue-50 border-blue-100' : 'text-green-500 bg-green-50 border-green-100'}`}>
+                        {paymentMethod === 'CREDIT' ? 'Crédito' : 'Débito'}
+                      </span>
                     </label>
                     <select
                       value={cardId}
@@ -239,21 +293,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                         </option>
                       ))}
                     </select>
-                    {filteredCards.length === 0 && (
-                      <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                        <Info size={10} /> Nenhum cartão de {paymentMethod === 'CREDIT' ? 'crédito' : 'débito'} para esta pessoa.
-                      </p>
-                    )}
                   </div>
                 )}
 
                 {!isFixed && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Parcelas</label>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Número de Parcelas</label>
                     <input
                       type="number"
                       min="1"
-                      max="48"
+                      max="60"
                       value={installments}
                       onChange={(e) => setInstallments(Number(e.target.value))}
                       className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
@@ -282,8 +331,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                 </label>
               </div>
               {isFixed && (
-                <p className="text-[11px] text-blue-600 leading-tight">
-                  Ao ativar, esta conta será repetida automaticamente nos próximos <b>12 meses</b>. Ideal para aluguel, internet, celular, etc.
+                <p className="text-[11px] text-blue-600 leading-tight font-medium">
+                  Isso criará automaticamente 12 meses desta conta no seu extrato.
                 </p>
               )}
             </div>
@@ -298,7 +347,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
               className="w-4 h-4 text-blue-600 rounded"
             />
             <label htmlFor="isPaid" className="text-sm font-medium text-slate-700">
-              {type === 'INCOME' ? 'Recebido' : type === 'SAVINGS' ? 'Confirmado' : 'Já está pago?'}
+              {type === 'INCOME' ? 'Já recebi este valor' : 'Já está pago?'}
             </label>
           </div>
 
@@ -306,13 +355,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              className="flex-1 py-3 px-4 border border-slate-300 rounded-xl text-slate-700 font-bold hover:bg-slate-50 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 px-4 bg-blue-600 rounded-lg text-white font-semibold hover:bg-blue-700 shadow-md transition-all active:scale-95"
+              className="flex-1 py-3 px-4 bg-blue-600 rounded-xl text-white font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
             >
               Salvar
             </button>
