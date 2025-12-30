@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Person, Card, CardType, Category, CloudConfig, FirebaseFullConfig } from '../types';
 import { generateId } from '../lib/utils';
-import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette } from 'lucide-react';
+import { Plus, Trash2, User, Tag, Database, Info, Key, ShieldCheck, CreditCard, Palette, Lock, ShieldAlert, ExternalLink } from 'lucide-react';
 
 interface ManagementProps {
   people: Person[];
@@ -37,7 +37,6 @@ const Management: React.FC<ManagementProps> = ({
   const [newPersonColor, setNewPersonColor] = useState(PRESET_COLORS[0]);
   const [newCategoryName, setNewCategoryName] = useState('');
   
-  // States para novo cartão
   const [newCardName, setNewCardName] = useState('');
   const [newCardPersonId, setNewCardPersonId] = useState(people[0]?.id || '');
   const [newCardType, setNewCardType] = useState<CardType>('BOTH');
@@ -80,7 +79,6 @@ const Management: React.FC<ManagementProps> = ({
       color: newPersonColor 
     });
     setNewPersonName('');
-    // Rotaciona a cor para a próxima do preset automaticamente
     const currentIndex = PRESET_COLORS.indexOf(newPersonColor);
     setNewPersonColor(PRESET_COLORS[(currentIndex + 1) % PRESET_COLORS.length]);
   };
@@ -106,10 +104,56 @@ const Management: React.FC<ManagementProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto pb-12">
+      {/* Guia de Segurança - NOVO */}
+      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-100 p-8 rounded-3xl shadow-sm">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="bg-amber-500 p-3 rounded-2xl text-white shadow-lg shadow-amber-200">
+            <ShieldAlert size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-amber-900">Segurança e Privacidade</h3>
+            <p className="text-amber-700 text-sm font-medium">Proteja seu banco de dados contra curiosos no GitHub.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white/60 p-5 rounded-2xl border border-amber-200 space-y-3">
+            <div className="flex items-center gap-2 font-bold text-amber-800 text-sm">
+              <Lock size={16} /> 1. Bloqueie novos cadastros
+            </div>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Vá no site do Firebase em <b>Authentication > Settings > User actions</b> e desmarque a opção <b>"Allow software registration"</b>. 
+              Isso impede que desconhecidos criem contas, mesmo tendo seu código.
+            </p>
+          </div>
+
+          <div className="bg-white/60 p-5 rounded-2xl border border-amber-200 space-y-3">
+            <div className="flex items-center gap-2 font-bold text-amber-800 text-sm">
+              <ShieldCheck size={16} /> 2. Regras de Acesso
+            </div>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              No menu <b>Realtime Database > Rules</b>, use regras que verifiquem o seu ID de usuário único (UID). 
+              Não deixe as regras como <code>auth != null</code> se quiser privacidade total.
+            </p>
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-center">
+          <a 
+            href="https://console.firebase.google.com/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase hover:bg-amber-700 transition-colors"
+          >
+            Abrir Console do Firebase <ExternalLink size={14} />
+          </a>
+        </div>
+      </div>
+
       {/* Firebase Config Card */}
       <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-blue-50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-          <ShieldCheck size={120} className="text-blue-600" />
+        <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+          <Database size={120} className="text-blue-600" />
         </div>
 
         <div className="flex items-center gap-4 mb-8">
@@ -117,8 +161,8 @@ const Management: React.FC<ManagementProps> = ({
             <Key size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-black text-slate-800">Conexão com Firebase</h3>
-            <p className="text-slate-500 text-sm">Suas credenciais já estão configuradas. Altere apenas se necessário.</p>
+            <h3 className="text-xl font-black text-slate-800">Conexão Técnica</h3>
+            <p className="text-slate-500 text-sm">Credenciais de sincronização em nuvem.</p>
           </div>
         </div>
 
@@ -126,13 +170,13 @@ const Management: React.FC<ManagementProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2 ml-1">
-                Configuração do SDK (Objeto JSON)
+                Configuração do SDK (JSON)
                 <span className="cursor-help text-blue-500" title="Suas chaves atuais.">
                   <Info size={14} />
                 </span>
               </label>
               <textarea
-                rows={6}
+                rows={4}
                 value={firebaseConfigJson}
                 onChange={(e) => setFirebaseConfigJson(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-mono text-xs"
@@ -141,7 +185,7 @@ const Management: React.FC<ManagementProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">
-                Pasta no Banco ( familySecret )
+                Pasta no Banco ( Secret )
               </label>
               <input
                 type="text"
@@ -176,7 +220,7 @@ const Management: React.FC<ManagementProps> = ({
               type="text"
               value={newCardName}
               onChange={(e) => setNewCardName(e.target.value)}
-              placeholder="Nome do Cartão (ex: Nubank)"
+              placeholder="Nome do Cartão"
               className="w-full px-4 py-2 bg-slate-50 border rounded-lg outline-none text-sm"
               required
             />
@@ -228,7 +272,7 @@ const Management: React.FC<ManagementProps> = ({
                       {card.type === 'BOTH' ? 'Crédito/Débito' : card.type === 'CREDIT' ? 'Crédito' : 'Débito'}
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium">
-                      Dono: {person?.name || 'Desconhecido'}
+                      {person?.name || 'Desconhecido'}
                     </span>
                   </div>
                 </div>
