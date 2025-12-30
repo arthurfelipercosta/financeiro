@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, TransactionType, PaymentMethod, Person, Card, Category } from '../types';
 import { PAYMENT_METHODS } from '../constants';
 import { generateId, parseLocalDate } from '../lib/utils';
-import { X, CreditCard, PiggyBank, Repeat } from 'lucide-react';
+import { X, CreditCard, PiggyBank, Repeat, Info } from 'lucide-react';
 
 interface TransactionFormProps {
   onAdd: (transactions: Transaction[]) => void;
@@ -26,14 +26,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
   const [installments, setInstallments] = useState(1);
   const [isFixed, setIsFixed] = useState(false);
 
-  const availableCards = useMemo(() => {
-    return cards.filter(c => c.personId === personId);
-  }, [cards, personId]);
+  // Filtra cartões disponíveis para a pessoa e para o método de pagamento
+  const filteredCards = useMemo(() => {
+    return cards.filter(c => {
+      const isOwner = c.personId === personId;
+      if (!isOwner) return false;
+
+      if (paymentMethod === 'CREDIT') {
+        return c.type === 'CREDIT' || c.type === 'BOTH';
+      }
+      if (paymentMethod === 'DEBIT') {
+        return c.type === 'DEBIT' || c.type === 'BOTH';
+      }
+      return false;
+    });
+  }, [cards, personId, paymentMethod]);
+
+  // Se o método de pagamento mudar e o cartão atual não for mais válido, limpa a seleção
+  // Mas se for um cartão "Ambos", ele permanece selecionado ao trocar entre Crédito/Débito
+  useEffect(() => {
+    if (cardId) {
+      const isStillValid = filteredCards.some(c => c.id === cardId);
+      if (!isStillValid) setCardId('');
+    }
+  }, [paymentMethod, filteredCards, cardId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Lógica para Gasto Fixo (Recorrente 12 meses) ou Parcelado
     if (type === 'EXPENSE' && (installments > 1 || isFixed)) {
       const transactions: Transaction[] = [];
       const count = isFixed ? 12 : installments;
@@ -197,8 +217,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                 </div>
 
                 {(paymentMethod === 'CREDIT' || paymentMethod === 'DEBIT') && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Cartão</label>
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1 flex items-center justify-between">
+                      Cartão
+                      {paymentMethod === 'CREDIT' ? (
+                        <span className="text-[9px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase">Função Crédito</span>
+                      ) : (
+                        <span className="text-[9px] text-green-500 bg-green-50 px-1.5 py-0.5 rounded border border-green-100 uppercase">Função Débito</span>
+                      )}
+                    </label>
                     <select
                       value={cardId}
                       onChange={(e) => setCardId(e.target.value)}
@@ -206,13 +233,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, peopl
                       required
                     >
                       <option value="">Selecione um cartão</option>
-                      {availableCards
-                        .filter(c => paymentMethod === 'CREDIT' ? (c.type === 'CREDIT' || c.type === 'BOTH') : (c.type === 'DEBIT' || c.type === 'BOTH'))
-                        .map(c => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
-                        ))
-                      }
+                      {filteredCards.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.type === 'BOTH' ? '(Multifunção)' : ''}
+                        </option>
+                      ))}
                     </select>
+                    {filteredCards.length === 0 && (
+                      <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                        <Info size={10} /> Nenhum cartão de {paymentMethod === 'CREDIT' ? 'crédito' : 'débito'} para esta pessoa.
+                      </p>
+                    )}
                   </div>
                 )}
 
